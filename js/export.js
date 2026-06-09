@@ -153,7 +153,7 @@ function exportEmployees(employees) {
   const rows = employees.map(e => [
     e.sap,
     e.name,
-    e.dept_name || '',
+    e.departments?.name || e.dept_name || '',
     e.status === 1 ? 'نشط' : 'محظور',
     e.device_block ? 'نعم' : 'لا',
   ]);

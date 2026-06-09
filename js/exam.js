@@ -123,13 +123,11 @@ async function startExam() {
   }
 
   // 3. Check if already submitted
-  const { data: prevResult } = await db
-    .from('results')
-    .select('id')
-    .eq('sap', sap)
-    .maybeSingle();
+  //    Direct SELECT on results is blocked by RLS for workers (anon role).
+  //    Use a SECURITY DEFINER RPC that returns only a boolean — no data exposed.
+  const { data: alreadyTaken } = await db.rpc('has_taken_exam', { p_sap: sap });
 
-  if (prevResult) {
+  if (alreadyTaken) {
     showBlock('✅', 'تم تسجيل اختبارك', 'لقد أجريت هذا الاختبار مسبقاً. لا يُسمح بأكثر من محاولة واحدة.');
     return;
   }

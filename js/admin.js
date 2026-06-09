@@ -325,6 +325,50 @@ async function uploadEmployeesFile(file) {
   loadEmployees();
 }
 
+// Excel upload for questions
+async function uploadQuestionsFile(file) {
+  if (!file) return;
+  const cols = ['Q_ID', 'Category', 'Type', 'Question', 'Opt_A', 'Opt_B', 'Opt_C', 'Opt_D', 'Answer'];
+  const { rows, errors } = await parseUploadedFile(file, cols);
+
+  if (errors.length) { toast(errors[0], 'error'); return; }
+  if (!rows.length)  { toast('لا توجد بيانات في الملف', 'error'); return; }
+
+  const progress = $('q-upload-progress');
+  const statusEl = $('q-upload-status');
+  if (progress) progress.style.display = 'block';
+
+  let done = 0;
+  for (const row of rows) {
+    const qId = parseInt(row.Q_ID);
+    if (!qId || !row.Question || !row.Category || !row.Type || !row.Answer) continue;
+
+    const type = row.Type.toLowerCase().trim();
+    const payload = {
+      q_id:     qId,
+      category: row.Category.trim(),
+      type:     (type === 'mcq' || type === 't/f') ? type : 'mcq',
+      question: row.Question.trim(),
+      opt_a:    row.Opt_A  || null,
+      opt_b:    row.Opt_B  || null,
+      opt_c:    row.Opt_C  || null,
+      opt_d:    row.Opt_D  || null,
+      answer:   row.Answer.trim(),
+    };
+
+    await db.from('questions').upsert(payload, { onConflict: 'q_id' });
+    done++;
+    if (progress) {
+      $('q-upload-bar').style.width = Math.round((done / rows.length) * 100) + '%';
+      if (statusEl) statusEl.textContent = `تم معالجة ${done} من ${rows.length}`;
+    }
+  }
+
+  toast(`تم رفع ${done} سؤال`, 'success');
+  if (progress) progress.style.display = 'none';
+  loadQuestions();
+}
+
 // ────────────────────────────────────────────────────────────
 // TAB 2: QUESTIONS
 // ────────────────────────────────────────────────────────────
@@ -337,6 +381,16 @@ async function loadQuestions() {
 
   const { data } = await db.from('questions').select('*').order('q_id');
   allQuestions = data || [];
+
+  // Populate category filter
+  const cats = [...new Set(allQuestions.map(q => q.category))].sort();
+  const catFilter = $('q-cat-filter');
+  if (catFilter) {
+    const current = catFilter.value;
+    catFilter.innerHTML = `<option value="">جميع الفئات</option>` +
+      cats.map(c => `<option value="${c}" ${c === current ? 'selected' : ''}>${c}</option>`).join('');
+  }
+
   renderQuestions(allQuestions);
 }
 
@@ -598,12 +652,21 @@ async function loadResults() {
   if (!tbody) return;
   tbody.innerHTML = skeletonRows(8);
 
-  const { data } = await db
-    .from('results')
-    .select('*')
-    .order('submitted_at', { ascending: false });
+  const [{ data }, { data: depts }] = await Promise.all([
+    db.from('results').select('*').order('submitted_at', { ascending: false }),
+    db.from('departments').select('name').order('name'),
+  ]);
 
   allResults = data || [];
+
+  // Populate department filter
+  const deptFilter = $('res-dept-filter');
+  if (deptFilter) {
+    const current = deptFilter.value;
+    deptFilter.innerHTML = `<option value="">جميع الأقسام</option>` +
+      (depts || []).map(d => `<option value="${d.name}" ${d.name === current ? 'selected' : ''}>${d.name}</option>`).join('');
+  }
+
   renderResults(allResults);
 }
 
@@ -731,11 +794,11 @@ async function loadAnalysis() {
     else qMap[r.q_id].wrong++;
   });
 
-  const qs = Object.values(qMap)
+  analysisData = Object.values(qMap)
     .map(q => ({ ...q, success_rate: Math.round((q.correct / q.attempts) * 100) }))
     .sort((a, b) => a.success_rate - b.success_rate);
 
-  tbody.innerHTML = qs.map(q => {
+  tbody.innerHTML = analysisData.map(q => {
     const rateClass = q.success_rate < 50 ? 'rate-row-red' : q.success_rate < 70 ? 'rate-row-orange' : 'rate-row-green';
     const barClass  = q.success_rate < 50 ? 'low' : q.success_rate < 70 ? 'mid' : '';
     return `
@@ -760,10 +823,12 @@ async function loadAnalysis() {
   }).join('');
 
   // Bar chart - top 10 worst
-  renderAnalysisChart(qs.slice(0, 10));
+  renderAnalysisChart(analysisData.slice(0, 10));
 }
 
 let analysisChart;
+let analysisData = []; // module-level so the export button can access it
+
 function renderAnalysisChart(qs) {
   const canvas = $('analysis-chart');
   if (!canvas) return;
@@ -917,13 +982,22 @@ async function deleteUser(id) {
 
 // ── HELPERS ────────────────────────────────────────────────
 async function updateKPIs() {
-  const { count: totalEmps } = await db.from('employees').select('*', { count: 'exact', head: true });
-  const { count: totalRes }  = await db.from('results').select('*', { count: 'exact', head: true });
-  const { count: totalQs }   = await db.from('questions').select('*', { count: 'exact', head: true });
+  const [
+    { count: totalEmps  },
+    { count: totalRes   },
+    { count: totalQs    },
+    { count: totalDepts },
+  ] = await Promise.all([
+    db.from('employees').select('*',   { count: 'exact', head: true }),
+    db.from('results').select('*',     { count: 'exact', head: true }),
+    db.from('questions').select('*',   { count: 'exact', head: true }),
+    db.from('departments').select('*', { count: 'exact', head: true }),
+  ]);
 
-  countUp($('kpi-emps'), totalEmps || 0);
-  countUp($('kpi-results'), totalRes || 0);
-  countUp($('kpi-questions'), totalQs || 0);
+  countUp($('kpi-emps'),      totalEmps   || 0);
+  countUp($('kpi-results'),   totalRes    || 0);
+  countUp($('kpi-questions'), totalQs     || 0);
+  countUp($('kpi-depts'),     totalDepts  || 0);
 }
 
 function populateDeptFilter(selId, depts) {
