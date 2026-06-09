@@ -1,0 +1,1 @@
+INSERT INTO "public"."users" ("id", "email", "role", "name", "created_at") VALUES ('5e6c8e85-8888-417c-8989-fc9f858d626b', 'admin@elaraby.com', 'admin', 'مسؤول النظام', '2026-06-09 12:41:01.890412');

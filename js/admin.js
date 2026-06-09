@@ -867,14 +867,33 @@ async function saveUser() {
   }
 
   if (!id) {
-    // Create new user in Supabase Auth
+    // Use a temporary client so we don't disrupt the current admin session
     if (!pass) { toast('يرجى إدخال كلمة المرور', 'error'); return; }
-    const { data: authData, error: authErr } = await db.auth.admin?.createUser?.({
-      email, password: pass, email_confirm: true
+
+    const tempClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: authData, error: authErr } = await tempClient.auth.signUp({
+      email,
+      password: pass,
     });
-    // Note: admin.createUser requires service_role key, not available client-side
-    // Instruct admin to create via Supabase dashboard and then insert into users table
-    toast('يرجى إنشاء المستخدم أولاً من لوحة Supabase Auth ثم إدراجه هنا', 'warning');
+
+    if (authErr) { toast(authErr.message, 'error'); return; }
+
+    const newUserId = authData.user?.id;
+    if (!newUserId) { toast('فشل إنشاء المستخدم في نظام المصادقة', 'error'); return; }
+
+    // Insert profile row — admin RLS policy allows this
+    const { error: insertErr } = await db.from('users').insert({
+      id: newUserId,
+      email,
+      role,
+      name,
+    });
+
+    if (insertErr) { toast(insertErr.message, 'error'); return; }
+
+    toast('تم إنشاء المستخدم بنجاح', 'success');
+    closeModal('user-modal');
+    loadUsers();
     return;
   }
 

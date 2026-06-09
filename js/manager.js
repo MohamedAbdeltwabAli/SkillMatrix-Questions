@@ -250,8 +250,11 @@ async function loadNotAssessed() {
     allDepts     = depts    || [];
   }
 
-  const assessed = new Set(allResults.map ? allResults : allResults);
-  const notAssessed = allEmployees.filter(e => !assessed.has(e.sap)).map(e => ({
+  // Normalize to SAP strings regardless of whether allResults holds objects or strings
+  const assessedSaps = new Set(
+    allResults.map(r => (typeof r === 'string' ? r : r.sap))
+  );
+  const notAssessed = allEmployees.filter(e => !assessedSaps.has(e.sap)).map(e => ({
     sap: e.sap, name: e.name, dept_name: e.departments?.name || '—',
   }));
 

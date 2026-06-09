@@ -108,12 +108,8 @@ async function startExam() {
   showScreen('loading-screen');
   $('loading-msg').textContent = 'جارٍ التحقق من بياناتك...';
 
-  // 1. Verify password (compare locally — Edge Function does secure scoring)
-  if (state.employee.password !== pass) {
-    showScreen('login-screen');
-    showLoginError('كلمة المرور غير صحيحة.');
-    return;
-  }
+  // 1. Password is verified server-side by the Edge Function (secure).
+  //    No client-side check — state.employee does not carry the password field.
 
   // 2. Check SAP status
   if (state.employee.status === 0) {
@@ -192,11 +188,14 @@ async function loadQuestions(departmentId) {
   const allQuestions = [];
 
   for (const cfg of configs) {
-    // Fetch questions WITHOUT the answer field
+    // Fetch a capped pool for efficiency, then shuffle client-side.
+    // Answers are never fetched here — the Edge Function handles scoring.
+    const fetchLimit = Math.max(cfg.count * 3, 30);
     const { data: qs } = await db
       .from('questions')
       .select('q_id, category, type, question, opt_a, opt_b, opt_c, opt_d')
-      .eq('category', cfg.category);
+      .eq('category', cfg.category)
+      .limit(fetchLimit);
 
     if (!qs || qs.length === 0) continue;
 
@@ -384,8 +383,8 @@ async function submitExam(forced = false) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': db.supabaseKey,
-        'Authorization': `Bearer ${db.supabaseKey}`,
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
       },
       body: JSON.stringify({
         sap: state.employee.sap,
@@ -405,9 +404,11 @@ async function submitExam(forced = false) {
 
     showResult(result);
   } catch (err) {
-    // Fallback: score locally (less secure) if Edge Function unavailable
-    console.warn('Edge function unavailable, scoring locally:', err);
-    await scoreLocally(responses);
+    // Do NOT fall back to client-side scoring — it would expose correct answers.
+    console.error('Edge function unreachable:', err);
+    state.submitted = false; // Allow the worker to retry
+    showScreen('login-screen');
+    showLoginError('تعذر الاتصال بالخادم. تحقق من اتصالك بالإنترنت وحاول مجدداً.');
   }
 }
 
