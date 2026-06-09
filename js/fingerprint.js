@@ -32,9 +32,13 @@ async function getDeviceHash() {
  * Check device status against the devices table.
  * @param {string} hash - device hash
  * @param {string} sap  - employee SAP
+ * @param {string} mode - 'strict' | 'flexible' | 'off'
  * @returns {{ allowed: boolean, reason: string|null }}
  */
-async function checkDevice(hash, sap) {
+async function checkDevice(hash, sap, mode = 'strict') {
+  // 'off' mode — skip all device checks
+  if (mode === 'off') return { allowed: true, reason: null };
+
   const { data: device, error } = await db
     .from('devices')
     .select('sap, blocked')
@@ -52,6 +56,10 @@ async function checkDevice(hash, sap) {
     return { allowed: false, reason: 'هذا الجهاز محظور. يرجى التواصل مع المهندس المسؤول.' };
   }
 
+  // 'flexible' mode — shared devices allowed; only block explicitly blocked devices
+  if (mode === 'flexible') return { allowed: true, reason: null };
+
+  // 'strict' mode — device must belong to this SAP only
   if (device.sap !== sap) {
     return { allowed: false, reason: 'هذا الجهاز مرتبط بحساب آخر. يرجى التواصل مع المهندس المسؤول.' };
   }

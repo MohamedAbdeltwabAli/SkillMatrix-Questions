@@ -16,6 +16,7 @@ function showTab(tabId) {
     results:    'نتائج الاختبارات',
     analysis:   'تحليل الأسئلة',
     users:      'إدارة المستخدمين',
+    settings:   'إعدادات النظام',
   };
   $('page-title').textContent = titles[tabId] || '';
 
@@ -27,6 +28,7 @@ function showTab(tabId) {
     results:    loadResults,
     analysis:   loadAnalysis,
     users:      loadUsers,
+    settings:   loadSettings,
   };
   loaders[tabId]?.();
 }
@@ -1008,7 +1010,35 @@ function populateDeptFilter(selId, depts) {
     depts.map(d => `<option value="${d.id}" ${d.id === current ? 'selected' : ''}>${d.name}</option>`).join('');
 }
 
-// ── INIT ──────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────
+// TAB: SETTINGS
+// ────────────────────────────────────────────────────────────
+async function loadSettings() {
+  const { data, error } = await db.from('settings').select('key, value');
+  if (error) { toast('تعذر تحميل الإعدادات', 'error'); return; }
+
+  const map = {};
+  (data || []).forEach(s => { map[s.key] = s.value; });
+
+  const modeEl = $('device-check-mode');
+  if (modeEl && map.device_check_mode) modeEl.value = map.device_check_mode;
+}
+
+async function saveSettings() {
+  const mode = $('device-check-mode')?.value;
+  if (!mode) return;
+
+  const { error } = await db.from('settings').upsert(
+    { key: 'device_check_mode', value: mode, updated_at: new Date().toISOString() },
+    { onConflict: 'key' }
+  );
+
+  if (error) { toast(error.message, 'error'); return; }
+  toast('تم حفظ الإعدادات بنجاح', 'success');
+}
+
+// ────────────────────────────────────────────────────────────
+// ── INIT ────────────────────────────────────────────────────
 (async () => {
   // Auth guard
   const { requireRole, renderUserHeader, getCurrentUser } = window;

@@ -57,6 +57,10 @@
         <span class="nav-icon">🔐</span>
         <span class="nav-label">المستخدمون</span>
       </button>
+      <button class="nav-item" data-tab="settings" onclick="showTab('settings')">
+        <span class="nav-icon">⚙️</span>
+        <span class="nav-label">الإعدادات</span>
+      </button>
     </nav>
 
     <div class="sidebar-footer">
@@ -321,6 +325,42 @@
               </thead>
               <tbody id="users-tbody"></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════ -->
+      <!-- TAB: SETTINGS                                    -->
+      <!-- ═══════════════════════════════════════════════ -->
+      <div class="tab-panel" id="panel-settings">
+        <div class="section-card">
+          <div class="section-card-header">
+            <span class="section-card-title">⚙️ إعدادات النظام</span>
+            <button class="btn btn-primary btn-sm" onclick="saveSettings()">💾 حفظ التغييرات</button>
+          </div>
+          <div style="padding:1.5rem;">
+
+            <div class="card" style="padding:1.5rem;margin-bottom:1.5rem;">
+              <h3 style="font-size:1rem;font-weight:700;margin-bottom:0.35rem;">🔒 التحقق من الجهاز (Device Fingerprinting)</h3>
+              <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1.25rem;">
+                يتحكم هذا الإعداد في كيفية ربط الموظفين بأجهزتهم أثناء الاختبار.
+              </p>
+              <div class="form-group">
+                <label>وضع التحقق من الجهاز</label>
+                <select id="device-check-mode"
+                        style="width:100%;max-width:480px;padding:0.65rem 1rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.9rem;">
+                  <option value="strict">🔐 صارم — جهاز واحد لكل موظف (مناسب إذا كل موظف لديه جهازه الخاص)</option>
+                  <option value="flexible">🔄 مرن — الأجهزة المشتركة مسموحة (مناسب للمصانع)</option>
+                  <option value="off">🔓 معطل — لا قيود على الأجهزة</option>
+                </select>
+              </div>
+              <div style="margin-top:1rem;padding:1rem;background:var(--bg-secondary);border-radius:8px;font-size:0.82rem;line-height:2;">
+                <strong>🔐 صارم:</strong> كل جهاز مرتبط بموظف واحد فقط — لا يمكن لموظف آخر استخدام نفس الجهاز.<br>
+                <strong>🔄 مرن:</strong> يمكن لعدة موظفين استخدام نفس الجهاز — الحماية تعتمد على منع تكرار الاختبار.<br>
+                <strong>🔓 معطل:</strong> لا توجد قيود على الأجهزة — الحماية تعتمد فقط على منع تكرار الاختبار.
+              </div>
+            </div>
+
           </div>
         </div>
       </div>

@@ -7,6 +7,7 @@ const state = {
   answers: {},       // { q_id: answer }
   currentIdx: 0,
   deviceHash: null,
+  deviceMode: 'strict', // read from settings at exam start
   timerInterval: null,
   timeLeft: 0,
   submitted: false,
@@ -135,7 +136,16 @@ async function startExam() {
   // 4. Device fingerprint
   $('loading-msg').textContent = 'جارٍ التحقق من الجهاز...';
   state.deviceHash = await getDeviceHash();
-  const deviceCheck = await checkDevice(state.deviceHash, sap);
+
+  // Read device check mode from admin settings
+  const { data: modeSetting } = await db
+    .from('settings')
+    .select('value')
+    .eq('key', 'device_check_mode')
+    .maybeSingle();
+  state.deviceMode = modeSetting?.value || 'strict';
+
+  const deviceCheck = await checkDevice(state.deviceHash, sap, state.deviceMode);
   if (!deviceCheck.allowed) {
     showBlock('🔒', 'جهاز غير مصرح', deviceCheck.reason);
     return;

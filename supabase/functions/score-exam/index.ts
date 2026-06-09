@@ -59,12 +59,20 @@ serve(async (req) => {
       );
     }
 
-    // 2. Check if already submitted
+    // 2a. Fetch device check mode from settings
+    const { data: modeSetting } = await supabase
+      .from("settings")
+      .select("value")
+      .eq("key", "device_check_mode")
+      .maybeSingle();
+    const deviceCheckMode = modeSetting?.value ?? "strict";
+
+    // 2b. Check if already submitted
     const { data: existingResult } = await supabase
       .from("results")
       .select("id")
       .eq("sap", sap)
-      .single();
+      .maybeSingle();
 
     if (existingResult) {
       return new Response(
@@ -73,13 +81,13 @@ serve(async (req) => {
       );
     }
 
-    // 3. Check device
-    if (device_hash) {
+    // 3. Check device (respects admin-configured mode)
+    if (device_hash && deviceCheckMode !== "off") {
       const { data: device } = await supabase
         .from("devices")
         .select("sap, blocked")
         .eq("device_hash", device_hash)
-        .single();
+        .maybeSingle();
 
       if (device) {
         if (device.blocked) {
@@ -88,14 +96,15 @@ serve(async (req) => {
             { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
-        if (device.sap !== sap) {
+        // In strict mode only: device must belong to this SAP
+        if (deviceCheckMode === "strict" && device.sap !== sap) {
           return new Response(
             JSON.stringify({ error: "هذا الجهاز مرتبط بحساب آخر. يرجى التواصل مع المهندس المسؤول." }),
             { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
       } else {
-        // Register device
+        // New device — register it
         await supabase.from("devices").insert({ device_hash, sap });
       }
     }
