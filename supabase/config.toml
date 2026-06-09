@@ -1,0 +1,5 @@
+[project]
+id = "YOUR_SUPABASE_PROJECT_ID"
+
+[functions.score-exam]
+verify_jwt = false
