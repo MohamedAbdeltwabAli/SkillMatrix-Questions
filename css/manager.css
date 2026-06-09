@@ -1,0 +1,48 @@
+/* css/manager.css — Manager dashboard overrides (read-only indicators) */
+
+/* Manager gets a slightly different accent to distinguish from admin */
+.manager-badge {
+  background: linear-gradient(135deg, #1a7a4a, #1a3a6b);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2em 0.7em;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+}
+
+/* Hide admin-only actions in manager view */
+.admin-only { display: none !important; }
+
+/* Read-only notice */
+.readonly-notice {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  font-size: 0.83rem;
+  color: #4338ca;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Department report section */
+.dept-report-selector {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  padding: 1.2rem 1.5rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dept-report-selector label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}

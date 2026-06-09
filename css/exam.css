@@ -1,0 +1,516 @@
+/* css/exam.css — Worker exam page styles */
+
+/* ── ANIMATED BACKGROUND ────────────────────────────────── */
+body {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f2347 0%, #1a3a6b 40%, #0d1f3c 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 12s ease infinite;
+  font-family: 'Tajawal', sans-serif;
+  direction: rtl;
+  overflow-x: hidden;
+}
+
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── PARTICLES ──────────────────────────────────────────── */
+#particles {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(232,184,75,0.18);
+  animation: floatUp linear infinite;
+}
+
+@keyframes floatUp {
+  0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 0.6; }
+  100% { transform: translateY(-20vh) scale(1); opacity: 0; }
+}
+
+/* ── WRAPPER ────────────────────────────────────────────── */
+#app {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+/* ── GLASS CARD ─────────────────────────────────────────── */
+.glass-card {
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 24px;
+  box-shadow: 0 8px 60px rgba(0,0,0,0.4);
+  padding: 2.5rem;
+  width: min(520px, 100%);
+  color: #fff;
+}
+
+/* ── LOGO ───────────────────────────────────────────────── */
+.logo-wrap {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  animation: logoGlow 2s ease-in-out infinite alternate;
+}
+
+.logo-wrap img {
+  height: 72px;
+  margin: 0 auto;
+  filter: drop-shadow(0 0 18px rgba(232,184,75,0.5));
+}
+
+.logo-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px; height: 80px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+  margin: 0 auto;
+  box-shadow: 0 0 30px rgba(232,184,75,0.4);
+}
+
+@keyframes logoGlow {
+  from { filter: drop-shadow(0 0 10px rgba(232,184,75,0.3)); }
+  to   { filter: drop-shadow(0 0 28px rgba(232,184,75,0.7)); }
+}
+
+.brand-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 0.6rem;
+  letter-spacing: 0.02em;
+}
+
+.brand-sub {
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.55);
+  margin-top: 0.1rem;
+}
+
+/* ── SCREENS ────────────────────────────────────────────── */
+.screen { display: none; }
+.screen.active { display: block; animation: fadeIn 0.4s ease; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── LOGIN SCREEN ───────────────────────────────────────── */
+.screen-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #fff;
+}
+
+.input-group {
+  position: relative;
+  margin-bottom: 1.2rem;
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 0.4rem;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(255,255,255,0.09);
+  border: 1.5px solid rgba(255,255,255,0.18);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1rem;
+  font-family: 'Tajawal', sans-serif;
+  transition: border-color 0.2s, background 0.2s;
+  direction: ltr;
+  text-align: center;
+  letter-spacing: 0.08em;
+}
+
+.input-group input::placeholder { color: rgba(255,255,255,0.35); }
+
+.input-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(255,255,255,0.14);
+}
+
+/* Employee info slide-down */
+.employee-info {
+  background: rgba(232,184,75,0.1);
+  border: 1px solid rgba(232,184,75,0.3);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1.2rem;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.4s ease, opacity 0.4s ease, padding 0.3s;
+}
+
+.employee-info.visible {
+  max-height: 120px;
+  opacity: 1;
+}
+
+.employee-info .emp-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.employee-info .emp-dept {
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.65);
+  margin-top: 0.2rem;
+}
+
+/* ── EXAM SCREEN ────────────────────────────────────────── */
+#exam-screen {
+  max-width: 620px;
+  width: 100%;
+}
+
+#exam-screen.glass-card {
+  padding: 2rem;
+}
+
+/* Timer ring */
+.timer-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.timer-ring-container {
+  position: relative;
+  width: 90px; height: 90px;
+}
+
+.timer-ring svg {
+  transform: rotate(-90deg);
+}
+
+.timer-ring circle {
+  fill: none;
+  stroke-width: 6;
+}
+
+.timer-ring .track {
+  stroke: rgba(255,255,255,0.12);
+}
+
+.timer-ring .progress {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear, stroke 0.5s;
+}
+
+.timer-ring.warning .progress { stroke: var(--warning); }
+.timer-ring.critical .progress { stroke: var(--danger); animation: pulseBeat 0.5s infinite; }
+
+@keyframes pulseBeat {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.timer-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Progress */
+.exam-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.65);
+}
+
+.exam-progress .progress-bar-wrap { flex: 1; }
+.exam-progress .progress-bar { background: var(--accent); }
+
+/* Question card */
+.question-card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  padding: 1.3rem 1.5rem;
+  margin-bottom: 1.2rem;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.question-card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.question-number {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.question-category-badge {
+  background: rgba(232,184,75,0.2);
+  color: var(--accent);
+  border-radius: 20px;
+  padding: 0.1em 0.6em;
+  font-size: 0.72rem;
+}
+
+.question-text {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 1rem;
+  line-height: 1.55;
+}
+
+/* Options */
+.options-grid { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.option-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.85);
+  font-size: 0.92rem;
+  font-family: 'Tajawal', sans-serif;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  text-align: right;
+}
+
+.option-btn:hover {
+  border-color: var(--accent);
+  background: rgba(232,184,75,0.1);
+  color: #fff;
+}
+
+.option-btn.selected {
+  border-color: var(--accent);
+  background: rgba(232,184,75,0.2);
+  color: #fff;
+  font-weight: 600;
+}
+
+.option-letter {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  flex-shrink: 0;
+  transition: background 0.18s;
+}
+.option-btn.selected .option-letter {
+  background: var(--accent);
+  color: var(--primary-dark);
+}
+
+/* TF buttons */
+.tf-grid { display: flex; gap: 0.75rem; }
+
+.tf-btn {
+  flex: 1;
+  padding: 0.8rem;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.8);
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: 'Tajawal', sans-serif;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-align: center;
+}
+.tf-btn:hover { border-color: var(--accent); background: rgba(232,184,75,0.1); color: #fff; }
+.tf-btn.selected { border-color: var(--accent); background: rgba(232,184,75,0.2); color: #fff; }
+.tf-btn.tf-true:hover, .tf-btn.tf-true.selected { border-color: #1a7a4a; background: rgba(26,122,74,0.2); }
+.tf-btn.tf-false:hover, .tf-btn.tf-false.selected { border-color: #c0392b; background: rgba(192,57,43,0.2); }
+
+/* Exam nav */
+.exam-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1.5rem;
+  gap: 0.75rem;
+}
+
+.unanswered-warning {
+  background: rgba(230,126,34,0.15);
+  border: 1px solid rgba(230,126,34,0.4);
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  font-size: 0.88rem;
+  color: #f0a558;
+  margin-top: 1rem;
+  display: none;
+}
+
+/* ── RESULT SCREEN ──────────────────────────────────────── */
+.result-card { text-align: center; }
+
+.score-circle {
+  width: 140px; height: 140px;
+  border-radius: 50%;
+  margin: 0 auto 1.5rem;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  border: 6px solid rgba(255,255,255,0.12);
+  position: relative;
+  animation: scaleIn 0.5s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.score-circle.pass {
+  border-color: #1a7a4a;
+  background: rgba(26,122,74,0.15);
+  box-shadow: 0 0 40px rgba(26,122,74,0.35);
+}
+
+.score-circle.fail {
+  border-color: #c0392b;
+  background: rgba(192,57,43,0.15);
+  box-shadow: 0 0 40px rgba(192,57,43,0.25);
+  animation: scaleIn 0.5s cubic-bezier(0.34,1.56,0.64,1), shake 0.5s 0.6s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-10px); }
+  40%       { transform: translateX(10px); }
+  60%       { transform: translateX(-8px); }
+  80%       { transform: translateX(8px); }
+}
+
+.score-percent {
+  font-size: 2.4rem;
+  font-weight: 800;
+  font-family: 'Inter', sans-serif;
+  color: #fff;
+  line-height: 1;
+}
+
+.score-label { font-size: 0.78rem; color: rgba(255,255,255,0.6); margin-top: 0.2rem; }
+
+.result-verdict {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+}
+.result-verdict.pass { color: #4ecb82; }
+.result-verdict.fail { color: #e87070; }
+
+.result-details {
+  font-size: 0.92rem;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 1.5rem;
+}
+
+/* Confetti */
+.confetti-container {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 999;
+  overflow: hidden;
+}
+
+.confetti-piece {
+  position: absolute;
+  width: 10px; height: 14px;
+  top: -20px;
+  border-radius: 2px;
+  animation: confettiFall linear forwards;
+}
+
+@keyframes confettiFall {
+  to {
+    transform: translateY(110vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+/* ── BLOCK SCREEN ───────────────────────────────────────── */
+.block-card { text-align: center; }
+
+.block-icon {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.08); }
+}
+
+.block-msg {
+  font-size: 1rem;
+  color: rgba(255,255,255,0.75);
+  line-height: 1.7;
+}
+
+/* ── RESPONSIVE ─────────────────────────────────────────── */
+@media (max-width: 540px) {
+  .glass-card { padding: 1.5rem 1.2rem; border-radius: 18px; }
+  .question-card { padding: 1rem; }
+  .tf-btn { font-size: 0.95rem; }
+}
