@@ -968,9 +968,19 @@ async function saveUser() {
   const { error } = await db.from('users').update({ name, role }).eq('id', id);
   if (error) { toast(error.message, 'error'); return; }
 
+  // Update Auth password if a new one was entered
+  if (pass) {
+    const { error: pwErr } = await db.rpc('admin_update_user_password', {
+      target_user_id: id,
+      new_password: pass,
+    });
+    if (pwErr) { toast(pwErr.message, 'error'); return; }
+  }
+
   toast('تم تحديث بيانات المستخدم', 'success');
   closeModal('user-modal');
   loadUsers();
+
 }
 
 async function deleteUser(id) {
