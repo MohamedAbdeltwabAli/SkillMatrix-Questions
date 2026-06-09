@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>تسجيل دخول الإدارة | Skill Matrix</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0f2347 0%, #1a3a6b 50%, #0d1f3c 100%);
+      font-family: 'Tajawal', sans-serif;
+      padding: 1rem;
+    }
+    .login-card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 16px 60px rgba(0,0,0,0.3);
+      width: min(440px, 100%);
+      overflow: hidden;
+    }
+    .login-header {
+      background: var(--primary);
+      padding: 2.5rem 2rem 2rem;
+      text-align: center;
+    }
+    .login-logo {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 64px; height: 64px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--primary-dark);
+      margin-bottom: 1rem;
+      box-shadow: 0 4px 20px rgba(232,184,75,0.4);
+    }
+    .login-title {
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+    .login-sub {
+      color: rgba(255,255,255,0.6);
+      font-size: 0.82rem;
+      margin-top: 0.25rem;
+    }
+    .login-body {
+      padding: 2rem;
+    }
+    .form-group {
+      margin-bottom: 1.2rem;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-family: 'Tajawal', sans-serif;
+      color: var(--text);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      direction: ltr;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(26,58,107,0.1);
+    }
+    .btn-login {
+      width: 100%;
+      padding: 0.8rem;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: 'Tajawal', sans-serif;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s;
+      margin-top: 0.5rem;
+    }
+    .btn-login:hover { background: var(--primary-light); }
+    .btn-login:active { transform: scale(0.98); }
+    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+    .login-error {
+      display: none;
+      background: var(--danger-light);
+      border: 1px solid rgba(192,57,43,0.3);
+      border-radius: 8px;
+      padding: 0.65rem 1rem;
+      font-size: 0.86rem;
+      color: var(--danger);
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    .login-footer {
+      text-align: center;
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .spin { animation: spin 1s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="login-header">
+    <div class="login-logo">EA</div>
+    <div class="login-title">لوحة تحكم نظام المهارات</div>
+    <div class="login-sub">El-Araby Group — WM Department</div>
+  </div>
+
+  <div class="login-body">
+    <div class="login-error" id="login-error"></div>
+
+    <div class="form-group">
+      <label for="email">البريد الإلكتروني</label>
+      <input type="email" id="email" placeholder="admin@elaraby.com" autocomplete="email" />
+    </div>
+
+    <div class="form-group">
+      <label for="password">كلمة المرور</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+
+    <button class="btn-login" id="login-btn" onclick="doLogin()">
+      تسجيل الدخول
+    </button>
+  </div>
+
+  <div class="login-footer">
+    نظام تقييم المهارات — El-Araby Group © 2024
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="js/supabase.js"></script>
+<script src="js/auth.js"></script>
+<script>
+  // Redirect if already logged in
+  (async () => {
+    const user = await getCurrentUser();
+    if (user) {
+      window.location.href = user.role === 'admin' ? '/admin/' : '/manager/';
+    }
+  })();
+
+  document.getElementById('password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  async function doLogin() {
+    const btn   = document.getElementById('login-btn');
+    const email = document.getElementById('email').value.trim();
+    const pass  = document.getElementById('password').value;
+    const errEl = document.getElementById('login-error');
+
+    errEl.style.display = 'none';
+
+    if (!email || !pass) {
+      errEl.textContent = 'يرجى إدخال البريد الإلكتروني وكلمة المرور.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin">⏳</span> جارٍ تسجيل الدخول...';
+
+    const { user, error } = await login(email, pass);
+
+    if (error) {
+      errEl.textContent = error;
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'تسجيل الدخول';
+      return;
+    }
+
+    window.location.href = user.role === 'admin' ? '/admin/' : '/manager/';
+  }
+</script>
+</body>
+</html>

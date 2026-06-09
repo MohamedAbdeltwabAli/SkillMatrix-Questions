@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>اختبار مهارات | El-Araby Group</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/exam.css" />
+  <!-- Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<!-- Particles -->
+<div id="particles"></div>
+
+<div id="app">
+
+  <!-- ── LOGIN SCREEN ─────────────────────────────────── -->
+  <div id="login-screen" class="screen active glass-card">
+    <div class="logo-wrap">
+      <div class="logo-placeholder">EA</div>
+      <div class="brand-name">El-Araby Group</div>
+      <div class="brand-sub">نظام تقييم المهارات | قسم الغسالات</div>
+    </div>
+
+    <h2 class="screen-title">تسجيل الدخول للاختبار</h2>
+
+    <div class="input-group">
+      <label for="sap-input">رقم SAP الخاص بك</label>
+      <input type="text" id="sap-input" placeholder="مثال: 80002758"
+             inputmode="numeric" autocomplete="off" maxlength="12" />
+    </div>
+
+    <div class="employee-info" id="emp-info">
+      <div class="emp-name" id="emp-name">—</div>
+      <div class="emp-dept" id="emp-dept">—</div>
+    </div>
+
+    <div class="input-group">
+      <label for="pass-input">كلمة المرور</label>
+      <input type="password" id="pass-input" placeholder="••••"
+             inputmode="numeric" maxlength="8" />
+      <small style="color:rgba(255,255,255,0.45);font-size:0.75rem;margin-top:0.3rem;">
+        آخر رقمين من الرقم القومي + آخر رقمين من رقم الهاتف
+      </small>
+    </div>
+
+    <div id="login-error" style="display:none;background:rgba(192,57,43,0.15);border:1px solid rgba(192,57,43,0.4);
+         border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;color:#e87070;margin-bottom:1rem;text-align:center;"></div>
+
+    <button class="btn btn-accent btn-lg w-full" id="start-btn" style="justify-content:center;margin-top:0.5rem;" disabled>
+      بدء الاختبار
+    </button>
+  </div>
+
+  <!-- ── EXAM SCREEN ───────────────────────────────────── -->
+  <div id="exam-screen" class="screen glass-card" style="max-width:640px;width:100%;">
+
+    <div class="timer-wrap">
+      <div class="timer-ring-container">
+        <div class="timer-ring" id="timer-ring">
+          <svg width="90" height="90" viewBox="0 0 90 90">
+            <circle class="track" cx="45" cy="45" r="39" />
+            <circle class="progress" id="timer-arc" cx="45" cy="45" r="39"
+                    stroke-dasharray="245" stroke-dashoffset="0" />
+          </svg>
+          <div class="timer-text" id="timer-display">30:00</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="exam-progress">
+      <span id="progress-label" style="white-space:nowrap;color:rgba(255,255,255,0.7);font-size:0.82rem;">السؤال 1 / 20</span>
+      <div class="progress-bar-wrap" style="flex:1;">
+        <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div id="questions-container"></div>
+
+    <div class="unanswered-warning" id="unanswered-warning">
+      ⚠️ يوجد أسئلة لم تتم الإجابة عليها. يرجى الإجابة على جميع الأسئلة قبل الإرسال.
+    </div>
+
+    <div class="exam-nav">
+      <button class="btn btn-ghost btn-sm" id="prev-btn" style="color:#fff;border-color:rgba(255,255,255,0.3);">
+        ← السابق
+      </button>
+      <button class="btn btn-ghost btn-sm" id="next-btn" style="color:#fff;border-color:rgba(255,255,255,0.3);">
+        التالي →
+      </button>
+      <button class="btn btn-accent" id="submit-btn" style="display:none;">
+        إرسال الاختبار ✓
+      </button>
+    </div>
+  </div>
+
+  <!-- ── RESULT SCREEN ─────────────────────────────────── -->
+  <div id="result-screen" class="screen glass-card result-card">
+    <div class="logo-wrap" style="margin-bottom:1rem;">
+      <div class="logo-placeholder" style="width:48px;height:48px;font-size:1.1rem;">EA</div>
+    </div>
+
+    <div class="score-circle" id="score-circle">
+      <div class="score-percent" id="score-percent">0%</div>
+      <div class="score-label">النسبة</div>
+    </div>
+
+    <div class="result-verdict" id="result-verdict"></div>
+    <div class="result-details" id="result-details"></div>
+    <div id="suggestion-box" style="display:none;background:rgba(232,184,75,0.1);border:1px solid rgba(232,184,75,0.3);
+         border-radius:12px;padding:1rem;margin-top:1rem;font-size:0.88rem;color:rgba(255,255,255,0.8);text-align:right;"></div>
+
+    <div style="margin-top:1.5rem;font-size:0.8rem;color:rgba(255,255,255,0.4);text-align:center;">
+      شكراً لأدائك الاختبار. تم تسجيل نتيجتك.
+    </div>
+  </div>
+
+  <!-- ── BLOCK SCREEN ───────────────────────────────────── -->
+  <div id="block-screen" class="screen glass-card block-card">
+    <div class="block-icon" id="block-icon">🔒</div>
+    <div class="screen-title" id="block-title">تنبيه</div>
+    <div class="block-msg" id="block-msg"></div>
+  </div>
+
+  <!-- ── LOADING SCREEN ────────────────────────────────── -->
+  <div id="loading-screen" class="screen glass-card" style="text-align:center;">
+    <div style="font-size:2.5rem;margin-bottom:1rem;animation:spin 1s linear infinite;">⏳</div>
+    <div id="loading-msg" style="color:rgba(255,255,255,0.7);">جارٍ التحميل...</div>
+  </div>
+
+</div>
+
+<!-- Confetti container -->
+<div class="confetti-container" id="confetti-container"></div>
+
+<!-- Toast -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="js/supabase.js"></script>
+<script src="js/fingerprint.js"></script>
+<script src="js/exam.js"></script>
+</body>
+</html>
