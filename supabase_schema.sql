@@ -22,6 +22,7 @@
     phone            text,
     status           integer DEFAULT 1,       -- 1=active, 0=blocked
     device_block     boolean DEFAULT false,
+    exam_allowed     boolean DEFAULT true,
     registered_email text DEFAULT '',
     created_at       timestamp DEFAULT now()
   );
@@ -60,7 +61,8 @@
     passed          boolean NOT NULL,
     suggestion      text DEFAULT '',
     submitted_at    timestamp DEFAULT now(),
-    device_hash     text
+    device_hash     text,
+    attempt_number  integer DEFAULT 1
   );
 
   CREATE TABLE IF NOT EXISTS responses (

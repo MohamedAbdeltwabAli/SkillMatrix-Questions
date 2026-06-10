@@ -19,12 +19,13 @@ function cellStyle(fgColor, bold = false, color = 'FFFFFFFF') {
  */
 function exportResults(results, deptName = 'الكل') {
   const sheetName = `النتائج - ${deptName}`.substring(0, 31);
-  const headers = ['الاسم', 'رقم SAP', 'القسم', 'الدرجة', 'النسبة', 'النتيجة', 'التاريخ'];
+  const headers = ['الاسم', 'رقم SAP', 'القسم', 'المحاولة', 'الدرجة', 'النسبة', 'النتيجة', 'التاريخ'];
 
   const rows = results.map(r => [
     r.name,
     r.sap,
     r.department_name,
+    `المحاولة ${r.attempt_number || 1}`,
     `${r.score}/${r.total}`,
     `${r.percent}%`,
     r.passed ? 'ناجح ✓' : 'راسب ✗',
@@ -36,7 +37,7 @@ function exportResults(results, deptName = 'الكل') {
 
   // Column widths
   ws['!cols'] = [
-    { wch: 30 }, { wch: 14 }, { wch: 20 },
+    { wch: 30 }, { wch: 14 }, { wch: 20 }, { wch: 12 },
     { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }
   ];
 
@@ -49,7 +50,7 @@ function exportResults(results, deptName = 'الكل') {
 
   // Row coloring
   rows.forEach((row, rowIdx) => {
-    const passed = row[5].includes('ناجح');
+    const passed = row[6].includes('ناجح');
     headers.forEach((_, colIdx) => {
       const cell = XLSX.utils.encode_cell({ r: rowIdx + 1, c: colIdx });
       if (!ws[cell]) return;
@@ -137,11 +138,12 @@ function exportQuestionAnalysis(questions, detailedAttempts = []) {
 
   // Sheet 2: Detailed Employee Attempts
   if (detailedAttempts.length) {
-    const headers2 = ['رقم SAP', 'اسم الموظف', 'القسم', 'رقم السؤال', 'السؤال', 'الفئة', 'النوع', 'إجابة الموظف', 'الإجابة الصحيحة', 'النتيجة', 'التاريخ'];
+    const headers2 = ['رقم SAP', 'اسم الموظف', 'القسم', 'المحاولة', 'رقم السؤال', 'السؤال', 'الفئة', 'النوع', 'إجابة الموظف', 'الإجابة الصحيحة', 'النتيجة', 'التاريخ'];
     const rows2 = detailedAttempts.map(d => [
       d.sap,
       d.name,
       d.dept,
+      `المحاولة ${d.attempt || 1}`,
       d.q_id,
       d.question,
       d.category,
@@ -154,7 +156,7 @@ function exportQuestionAnalysis(questions, detailedAttempts = []) {
 
     const ws2 = XLSX.utils.aoa_to_sheet([headers2, ...rows2]);
     ws2['!cols'] = [
-      { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 12 },
+      { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
       { wch: 45 }, { wch: 15 }, { wch: 10 }, { wch: 14 },
       { wch: 14 }, { wch: 12 }, { wch: 12 }
     ];
@@ -165,7 +167,7 @@ function exportQuestionAnalysis(questions, detailedAttempts = []) {
     });
 
     rows2.forEach((row, rowIdx) => {
-      const isCorrect = row[9].includes('صح');
+      const isCorrect = row[10].includes('صح');
       const bgColor = isCorrect ? 'E8F5E9' : 'FFEBEE';
       headers2.forEach((_, colIdx) => {
         const cell = XLSX.utils.encode_cell({ r: rowIdx + 1, c: colIdx });

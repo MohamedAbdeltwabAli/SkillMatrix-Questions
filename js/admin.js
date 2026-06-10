@@ -93,7 +93,7 @@ let deptMap = {};
 async function loadEmployees() {
   const tbody = $('emp-tbody');
   if (!tbody) return;
-  tbody.innerHTML = skeletonRows(7);
+  tbody.innerHTML = skeletonRows(8);
 
   const [{ data: depts }, { data: emps }] = await Promise.all([
     db.from('departments').select('id, name').order('name'),
@@ -117,7 +117,7 @@ function renderEmployees(list) {
   if (selectAll) selectAll.checked = false;
 
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
       <div class="empty-icon">👥</div><p>لا يوجد موظفون</p></div></td></tr>`;
     updateBulkBar();
     return;
@@ -140,6 +140,11 @@ function renderEmployees(list) {
         </span>
       </td>
       <td>
+        <span class="badge ${e.exam_allowed ? 'badge-success' : 'badge-danger'}">
+          ${e.exam_allowed ? 'مسموح' : 'غير مسموح'}
+        </span>
+      </td>
+      <td>
         <div class="flex gap-1" style="justify-content:center;flex-wrap:wrap;">
           <button class="btn btn-primary btn-sm" onclick="editEmployee('${e.id}')">تعديل</button>
           <button class="btn btn-sm ${e.status===1?'btn-danger':'btn-success'}"
@@ -149,6 +154,10 @@ function renderEmployees(list) {
           <button class="btn btn-sm ${e.device_block?'btn-success':'btn-ghost'}"
                   onclick="toggleDeviceBlock('${e.id}', ${e.device_block})">
             ${e.device_block?'فك الجهاز':'حظر الجهاز'}
+          </button>
+          <button class="btn btn-sm ${e.exam_allowed?'btn-warning':'btn-success'}"
+                  onclick="toggleExamPermission('${e.id}', ${e.exam_allowed})">
+            ${e.exam_allowed?'إلغاء الإذن':'السماح بالاختبار'}
           </button>
           <button class="btn btn-danger btn-sm" onclick="deleteEmployee('${e.id}')">حذف</button>
         </div>
@@ -269,6 +278,33 @@ async function toggleDeviceBlock(id, currentBlock) {
   const { error } = await db.from('employees').update({ device_block: !currentBlock }).eq('id', id);
   if (error) { toast(error.message, 'error'); return; }
   toast(!currentBlock ? 'تم حظر الجهاز' : 'تم فك حظر الجهاز', 'success');
+  loadEmployees();
+}
+
+async function toggleExamPermission(id, currentExamAllowed) {
+  const { error } = await db.from('employees').update({ exam_allowed: !currentExamAllowed }).eq('id', id);
+  if (error) { toast(error.message, 'error'); return; }
+  toast(!currentExamAllowed ? 'تم السماح بدخول الاختبار للموظف' : 'تم إلغاء إذن الاختبار للموظف', 'success');
+  loadEmployees();
+}
+
+async function bulkAllowExam() {
+  const ids = [...document.querySelectorAll('.emp-check:checked')].map(cb => cb.dataset.id);
+  if (!ids.length) return;
+  if (!await confirmDlg(`هل تريد السماح بدخول الاختبار لـ ${ids.length} موظف؟`)) return;
+  const { error } = await db.from('employees').update({ exam_allowed: true }).in('id', ids);
+  if (error) { toast(error.message, 'error'); return; }
+  toast(`تم السماح بدخول الاختبار لـ ${ids.length} موظف`, 'success');
+  loadEmployees();
+}
+
+async function bulkBlockExam() {
+  const ids = [...document.querySelectorAll('.emp-check:checked')].map(cb => cb.dataset.id);
+  if (!ids.length) return;
+  if (!await confirmDlg(`هل تريد إلغاء إذن الاختبار لـ ${ids.length} موظف؟`)) return;
+  const { error } = await db.from('employees').update({ exam_allowed: false }).in('id', ids);
+  if (error) { toast(error.message, 'error'); return; }
+  toast(`تم إلغاء إذن الاختبار لـ ${ids.length} موظف`, 'success');
   loadEmployees();
 }
 
@@ -724,7 +760,7 @@ let allResults = [];
 async function loadResults() {
   const tbody = $('res-tbody');
   if (!tbody) return;
-  tbody.innerHTML = skeletonRows(8);
+  tbody.innerHTML = skeletonRows(9);
 
   const [{ data }, { data: depts }] = await Promise.all([
     db.from('results').select('*').order('submitted_at', { ascending: false }),
@@ -749,7 +785,7 @@ function renderResults(list) {
   if (!tbody) return;
 
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
       <div class="empty-icon">📊</div><p>لا توجد نتائج حتى الآن</p></div></td></tr>`;
     return;
   }
@@ -759,6 +795,7 @@ function renderResults(list) {
       <td>${r.name}</td>
       <td class="en">${r.sap}</td>
       <td>${r.department_name}</td>
+      <td class="en">المحاولة ${r.attempt_number || 1}</td>
       <td class="en">${r.score}/${r.total}</td>
       <td class="en">${r.percent}%</td>
       <td>
@@ -849,7 +886,7 @@ async function loadAnalysis() {
 
   const { data: responses } = await db
     .from('responses')
-    .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at');
+    .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number)');
 
   allAnalysisResponses = responses || [];
 
@@ -925,6 +962,7 @@ function exportAnalysisReport() {
       correct_ans: r.correct_answer,
       result: r.is_correct ? 'صح ✓' : 'خطأ ✗',
       date: new Date(r.submitted_at).toLocaleDateString('ar-EG'),
+      attempt: r.results?.attempt_number || 1,
     };
   });
 
@@ -979,7 +1017,7 @@ async function viewQuestionAttempts(qId) {
 
   const { data: responses, error } = await db
     .from('responses')
-    .select('sap, department_name, employee_answer, correct_answer, is_correct, submitted_at')
+    .select('sap, department_name, employee_answer, correct_answer, is_correct, submitted_at, results(attempt_number)')
     .eq('q_id', qId)
     .order('submitted_at', { ascending: false });
 
@@ -991,6 +1029,7 @@ async function viewQuestionAttempts(qId) {
   $('q-details-body').innerHTML = responses.map(r => {
     const emp = allEmployees.find(e => e.sap === r.sap);
     const empName = emp ? emp.name : '—';
+    const attemptNum = r.results?.attempt_number || 1;
     return `
       <tr style="background:${r.is_correct ? 'var(--success-light)' : 'var(--danger-light)'};">
         <td class="en">${r.sap}</td>
@@ -1003,7 +1042,7 @@ async function viewQuestionAttempts(qId) {
             ${r.is_correct ? '✓' : '✗'}
           </span>
         </td>
-        <td class="en" style="font-size:0.8rem;">${new Date(r.submitted_at).toLocaleDateString('ar-EG')}</td>
+        <td class="en" style="font-size:0.8rem;">المحاولة ${attemptNum} - ${new Date(r.submitted_at).toLocaleDateString('ar-EG')}</td>
       </tr>
     `;
   }).join('');

@@ -68,7 +68,7 @@ async function lookupSAP(sap) {
 
   const { data, error } = await db
     .from('employees')
-    .select('id, sap, name, department_id, status, device_block, departments(name)')
+    .select('id, sap, name, department_id, status, device_block, exam_allowed, departments(name)')
     .eq('sap', sap)
     .maybeSingle();
 
@@ -133,13 +133,9 @@ async function startExam() {
     return;
   }
 
-  // 3. Check if already submitted
-  //    Direct SELECT on results is blocked by RLS for workers (anon role).
-  //    Use a SECURITY DEFINER RPC that returns only a boolean — no data exposed.
-  const { data: alreadyTaken } = await db.rpc('has_taken_exam', { p_sap: sap });
-
-  if (alreadyTaken) {
-    showBlock('✅', 'تم تسجيل اختبارك', 'لقد أجريت هذا الاختبار مسبقاً. لا يُسمح بأكثر من محاولة واحدة.');
+  // 3. Check if exam is allowed
+  if (!state.employee.exam_allowed) {
+    showBlock('✅', 'تم تسجيل اختبارك', 'لقد أجريت هذا الاختبار مسبقاً. لا يُسمح بأكثر من محاولة واحدة. يرجى مراجعة المسؤول.');
     return;
   }
 

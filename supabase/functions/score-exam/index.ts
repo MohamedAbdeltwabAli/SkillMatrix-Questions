@@ -27,7 +27,7 @@ serve(async (req) => {
     // 1. Verify employee
     const { data: employee, error: empError } = await supabase
       .from("employees")
-      .select("id, name, department_id, password, status, device_block")
+      .select("id, name, department_id, password, status, device_block, exam_allowed")
       .eq("sap", sap)
       .single();
 
@@ -67,19 +67,21 @@ serve(async (req) => {
       .maybeSingle();
     const deviceCheckMode = modeSetting?.value ?? "strict";
 
-    // 2b. Check if already submitted
-    const { data: existingResult } = await supabase
-      .from("results")
-      .select("id")
-      .eq("sap", sap)
-      .maybeSingle();
-
-    if (existingResult) {
+    // 2b. Check if exam is allowed
+    if (!employee.exam_allowed) {
       return new Response(
-        JSON.stringify({ error: "لقد أجريت هذا الاختبار مسبقاً. لا يُسمح بأكثر من محاولة واحدة." }),
+        JSON.stringify({ error: "لقد أجريت هذا الاختبار مسبقاً. لا يُسمح بأكثر من محاولة واحدة. يرجى مراجعة المسؤول." }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // 2c. Count existing attempts to calculate the next attempt number
+    const { count: attemptsCount } = await supabase
+      .from("results")
+      .select("id", { count: "exact", head: true })
+      .eq("sap", sap);
+
+    const attempt_number = (attemptsCount || 0) + 1;
 
     // 3. Check device (respects admin-configured mode)
     if (device_hash && deviceCheckMode !== "off") {
@@ -172,6 +174,7 @@ serve(async (req) => {
         percent,
         passed,
         device_hash,
+        attempt_number,
       })
       .select()
       .single();
@@ -190,6 +193,12 @@ serve(async (req) => {
     }));
 
     await supabase.from("responses").insert(responsesWithResultId);
+
+    // Update employees table to disallow further attempts until re-authorized by an admin
+    await supabase
+      .from("employees")
+      .update({ exam_allowed: false })
+      .eq("sap", sap);
 
     // 9. Return score only — no answers
     return new Response(

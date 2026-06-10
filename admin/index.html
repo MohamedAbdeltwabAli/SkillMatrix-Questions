@@ -135,6 +135,8 @@
         <!-- Bulk actions bar -->
         <div class="bulk-actions" id="bulk-actions-bar">
           <span>تم تحديد <strong id="bulk-count">0</strong> موظف</span>
+          <button class="btn btn-primary btn-sm" onclick="bulkAllowExam()">السماح بالاختبار للمحددين</button>
+          <button class="btn btn-warning btn-sm" onclick="bulkBlockExam()">حظر المحددين من الاختبار</button>
           <button class="btn btn-danger btn-sm" onclick="bulkDeleteEmployees()">حذف المحدد</button>
           <button class="btn btn-ghost btn-sm" onclick="exportSelectedEmployees()">تصدير Excel</button>
         </div>
@@ -176,7 +178,7 @@
                   <th style="width:40px;"><input type="checkbox" id="select-all-emp"
                       onchange="document.querySelectorAll('.emp-check').forEach(cb=>cb.checked=this.checked);updateBulkBar();" /></th>
                   <th>رقم SAP</th><th>الاسم</th><th>القسم</th>
-                  <th>الحالة</th><th>الجهاز</th><th>الإجراءات</th>
+                  <th>الحالة</th><th>الجهاز</th><th>إذن الاختبار</th><th>الإجراءات</th>
                 </tr>
               </thead>
               <tbody id="emp-tbody"></tbody>
@@ -279,7 +281,7 @@
             <table>
               <thead>
                 <tr>
-                  <th>الاسم</th><th>SAP</th><th>القسم</th><th>الدرجة</th>
+                  <th>الاسم</th><th>SAP</th><th>القسم</th><th>المحاولة</th><th>الدرجة</th>
                   <th>النسبة</th><th>النتيجة</th><th>التاريخ</th><th>الإجراءات</th>
                 </tr>
               </thead>
@@ -565,8 +567,8 @@
 
 <script src="../js/supabase.js?v=2.1"></script>
 <script src="../js/auth.js?v=2.1"></script>
-<script src="../js/export.js?v=2.1"></script>
-<script src="../js/admin.js?v=2.1"></script>
+<script src="../js/export.js?v=2.3"></script>
+<script src="../js/admin.js?v=2.3"></script>
 <script>
   // Sidebar toggle
   function toggleSidebar() {
