@@ -395,34 +395,23 @@ async function submitExam(forced = false) {
   }));
 
   try {
-    // Use Edge Function for secure scoring
-    const resp = await fetch(`${EDGE_URL}/score-exam`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        sap: state.employee.sap,
-        password: document.getElementById('pass-input').value.trim(),
-        department_id: state.employee.department_id,
-        responses,
-        device_hash: state.deviceHash,
-      }),
+    // Use Database RPC for secure scoring without Edge Function
+    const { data: result, error: rpcErr } = await db.rpc('score_exam_db', {
+      p_sap: state.employee.sap,
+      p_password: document.getElementById('pass-input').value.trim(),
+      p_department_id: state.employee.department_id,
+      p_responses: responses,
+      p_device_hash: state.deviceHash
     });
 
-    const result = await resp.json();
-
-    if (!resp.ok) {
-      showBlock('⚠️', 'خطأ', result.error || 'حدث خطأ أثناء الإرسال. يرجى التواصل مع المسؤول.');
+    if (rpcErr) {
+      showBlock('⚠️', 'خطأ', rpcErr.message || 'حدث خطأ أثناء الإرسال. يرجى التواصل مع المسؤول.');
       return;
     }
 
     showResult(result);
   } catch (err) {
-    // Do NOT fall back to client-side scoring — it would expose correct answers.
-    console.error('Edge function unreachable:', err);
+    console.error('Scoring request failed:', err);
     state.submitted = false; // Allow the worker to retry
     showScreen('login-screen');
     showLoginError('تعذر الاتصال بالخادم. تحقق من اتصالك بالإنترنت وحاول مجدداً.');
