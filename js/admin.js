@@ -937,7 +937,14 @@ async function saveUser() {
     // Use a temporary client so we don't disrupt the current admin session
     if (!pass) { toast('يرجى إدخال كلمة المرور', 'error'); return; }
 
-    const tempClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Use isolated storage so signUp() doesn't overwrite the admin's session
+    const tempClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        storageKey: 'temp-signup-' + Date.now(),
+        autoRefreshToken: false,
+        persistSession: false,
+      }
+    });
     const { data: authData, error: authErr } = await tempClient.auth.signUp({
       email,
       password: pass,
