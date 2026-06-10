@@ -1189,18 +1189,31 @@ async function loadSettings() {
 
   const modeEl = $('device-check-mode');
   if (modeEl && map.device_check_mode) modeEl.value = map.device_check_mode;
+
+  const durationEl = $('exam-duration');
+  if (durationEl && map.exam_duration) durationEl.value = map.exam_duration;
 }
 
 async function saveSettings() {
   const mode = $('device-check-mode')?.value;
-  if (!mode) return;
+  const duration = $('exam-duration')?.value;
+  if (!mode || !duration) {
+    toast('يرجى ملء جميع الحقول المطلوبة', 'error'); return;
+  }
 
-  const { error } = await db.from('settings').upsert(
+  const { error: err1 } = await db.from('settings').upsert(
     { key: 'device_check_mode', value: mode, updated_at: new Date().toISOString() },
     { onConflict: 'key' }
   );
 
-  if (error) { toast(error.message, 'error'); return; }
+  const { error: err2 } = await db.from('settings').upsert(
+    { key: 'exam_duration', value: duration, updated_at: new Date().toISOString() },
+    { onConflict: 'key' }
+  );
+
+  if (err1 || err2) {
+    toast((err1 || err2).message, 'error'); return;
+  }
   toast('تم حفظ الإعدادات بنجاح', 'success');
 }
 

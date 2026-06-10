@@ -10,11 +10,11 @@ const state = {
   deviceMode: 'strict', // read from settings at exam start
   timerInterval: null,
   timeLeft: 0,
+  totalDuration: 1800, // default 30 mins in seconds
   submitted: false,
 };
 
 const PASS_THRESHOLD = 70;
-const TIMER_MINUTES  = 30;
 
 // ── DOM REFS ─────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -109,8 +109,18 @@ async function startExam() {
   showScreen('loading-screen');
   $('loading-msg').textContent = 'جارٍ التحقق من بياناتك...';
 
-  // 1. Password is verified server-side by the Edge Function (secure).
-  //    No client-side check — state.employee does not carry the password field.
+  // 1. Verify password securely by selecting only the password column
+  const { data: employeeData, error: dbErr } = await db
+    .from('employees')
+    .select('password')
+    .eq('sap', sap)
+    .maybeSingle();
+
+  if (dbErr || !employeeData || employeeData.password !== pass) {
+    showScreen('login-screen');
+    showLoginError('كلمة المرور غير صحيحة.');
+    return;
+  }
 
   // 2. Check SAP status
   if (state.employee.status === 0) {
@@ -137,13 +147,18 @@ async function startExam() {
   $('loading-msg').textContent = 'جارٍ التحقق من الجهاز...';
   state.deviceHash = await getDeviceHash();
 
-  // Read device check mode from admin settings
-  const { data: modeSetting } = await db
+  // Read all admin settings
+  const { data: settingsData } = await db
     .from('settings')
-    .select('value')
-    .eq('key', 'device_check_mode')
-    .maybeSingle();
-  state.deviceMode = modeSetting?.value || 'strict';
+    .select('key, value');
+
+  const settingsMap = {};
+  (settingsData || []).forEach(s => { settingsMap[s.key] = s.value; });
+
+  state.deviceMode = settingsMap.device_check_mode || 'strict';
+  const durationMinutes = parseInt(settingsMap.exam_duration) || 30;
+  state.totalDuration = durationMinutes * 60;
+  state.timeLeft = state.totalDuration;
 
   const deviceCheck = await checkDevice(state.deviceHash, sap, state.deviceMode);
   if (!deviceCheck.allowed) {
@@ -199,11 +214,10 @@ async function loadQuestions(departmentId) {
     // Fetch a capped pool for efficiency, then shuffle client-side.
     // Answers are never fetched here — the Edge Function handles scoring.
     const fetchLimit = Math.max(cfg.count * 3, 30);
-    const { data: qs } = await db
-      .from('questions')
-      .select('q_id, category, type, question, opt_a, opt_b, opt_c, opt_d')
-      .eq('category', cfg.category)
-      .limit(fetchLimit);
+    const { data: qs } = await db.rpc('get_random_questions_pool', {
+      p_category: cfg.category,
+      p_limit: fetchLimit
+    });
 
     if (!qs || qs.length === 0) continue;
 
@@ -323,7 +337,6 @@ $('next-btn').addEventListener('click', () => {
 
 // ── TIMER ────────────────────────────────────────────────
 function startTimer() {
-  state.timeLeft = TIMER_MINUTES * 60;
   updateTimerDisplay();
 
   state.timerInterval = setInterval(() => {
@@ -343,7 +356,7 @@ function updateTimerDisplay() {
   $('timer-display').textContent = `${mins}:${secs}`;
 
   // Arc
-  const total   = TIMER_MINUTES * 60;
+  const total   = state.totalDuration || 1800;
   const pct     = state.timeLeft / total;
   const circ    = 2 * Math.PI * 39;
   const offset  = circ * (1 - pct);
