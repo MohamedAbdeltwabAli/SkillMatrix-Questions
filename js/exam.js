@@ -109,8 +109,17 @@ async function startExam() {
   showScreen('loading-screen');
   $('loading-msg').textContent = 'جارٍ التحقق من بياناتك...';
 
-  // 1. Password is verified server-side by the Edge Function (secure).
-  //    No client-side check — state.employee does not carry the password field.
+  // 1. Password is verified server-side via database RPC (secure).
+  const { data: isPasswordCorrect, error: rpcErr } = await db.rpc('verify_employee_password', {
+    p_sap: sap,
+    p_password: pass
+  });
+
+  if (rpcErr || !isPasswordCorrect) {
+    showScreen('login-screen');
+    showLoginError('كلمة المرور غير صحيحة.');
+    return;
+  }
 
   // 2. Check SAP status
   if (state.employee.status === 0) {
