@@ -93,7 +93,7 @@ function exportNotAssessed(employees, deptName = 'الكل') {
 /**
  * Export question analysis to Excel with two sheets.
  */
-function exportQuestionAnalysis(questions, deptBreakdown = []) {
+function exportQuestionAnalysis(questions, detailedAttempts = []) {
   const wb = XLSX.utils.book_new();
 
   // Sheet 1: Full analysis
@@ -135,11 +135,49 @@ function exportQuestionAnalysis(questions, deptBreakdown = []) {
   ws1['!dir'] = 'rtl';
   XLSX.utils.book_append_sheet(wb, ws1, 'تحليل الأسئلة');
 
-  // Sheet 2: Department breakdown (if provided)
-  if (deptBreakdown.length) {
-    const ws2 = XLSX.utils.aoa_to_sheet(deptBreakdown);
+  // Sheet 2: Detailed Employee Attempts
+  if (detailedAttempts.length) {
+    const headers2 = ['رقم SAP', 'اسم الموظف', 'القسم', 'رقم السؤال', 'السؤال', 'الفئة', 'النوع', 'إجابة الموظف', 'الإجابة الصحيحة', 'النتيجة', 'التاريخ'];
+    const rows2 = detailedAttempts.map(d => [
+      d.sap,
+      d.name,
+      d.dept,
+      d.q_id,
+      d.question,
+      d.category,
+      d.type,
+      d.emp_ans,
+      d.correct_ans,
+      d.result,
+      d.date,
+    ]);
+
+    const ws2 = XLSX.utils.aoa_to_sheet([headers2, ...rows2]);
+    ws2['!cols'] = [
+      { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 12 },
+      { wch: 45 }, { wch: 15 }, { wch: 10 }, { wch: 14 },
+      { wch: 14 }, { wch: 12 }, { wch: 12 }
+    ];
+
+    headers2.forEach((_, i) => {
+      const cell = XLSX.utils.encode_cell({ r: 0, c: i });
+      if (ws2[cell]) ws2[cell].s = cellStyle('1A3A6B', true);
+    });
+
+    rows2.forEach((row, rowIdx) => {
+      const isCorrect = row[9].includes('صح');
+      const bgColor = isCorrect ? 'E8F5E9' : 'FFEBEE';
+      headers2.forEach((_, colIdx) => {
+        const cell = XLSX.utils.encode_cell({ r: rowIdx + 1, c: colIdx });
+        if (ws2[cell]) ws2[cell].s = {
+          fill: { fgColor: { rgb: bgColor } },
+          alignment: { readingOrder: 2 }
+        };
+      });
+    });
+
     ws2['!dir'] = 'rtl';
-    XLSX.utils.book_append_sheet(wb, ws2, 'تفاصيل الأقسام');
+    XLSX.utils.book_append_sheet(wb, ws2, 'إجابات الموظفين التفصيلية');
   }
 
   XLSX.writeFile(wb, `تحليل_الأسئلة_${dateStamp()}.xlsx`);

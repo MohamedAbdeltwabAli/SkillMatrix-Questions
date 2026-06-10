@@ -849,7 +849,9 @@ async function loadAnalysis() {
 
   const { data: responses } = await db
     .from('responses')
-    .select('q_id, question_text, category, type, is_correct, department_name');
+    .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at');
+
+  allAnalysisResponses = responses || [];
 
   if (!responses?.length) {
     tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
@@ -905,6 +907,29 @@ async function loadAnalysis() {
 
 let analysisChart;
 let analysisData = []; // module-level so the export button can access it
+let allAnalysisResponses = [];
+
+function exportAnalysisReport() {
+  const detailedAttempts = allAnalysisResponses.map(r => {
+    const emp = allEmployees.find(e => e.sap === r.sap);
+    const empName = emp ? emp.name : '—';
+    return {
+      sap: r.sap,
+      name: empName,
+      dept: r.department_name,
+      q_id: r.q_id,
+      question: r.question_text,
+      category: r.category,
+      type: r.type === 'mcq' ? 'MCQ' : 'صح/خطأ',
+      emp_ans: r.employee_answer,
+      correct_ans: r.correct_answer,
+      result: r.is_correct ? 'صح ✓' : 'خطأ ✗',
+      date: new Date(r.submitted_at).toLocaleDateString('ar-EG'),
+    };
+  });
+
+  exportQuestionAnalysis(analysisData, detailedAttempts);
+}
 
 function renderAnalysisChart(qs) {
   const canvas = $('analysis-chart');

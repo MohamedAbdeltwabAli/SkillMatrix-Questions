@@ -301,7 +301,7 @@
         <div class="section-card">
           <div class="section-card-header">
             <span class="section-card-title">تفاصيل تحليل الأسئلة</span>
-            <button class="btn btn-accent btn-sm" onclick="exportQuestionAnalysis(analysisData||[])">⬇ تصدير Excel</button>
+            <button class="btn btn-accent btn-sm" onclick="exportAnalysisReport()">⬇ تصدير Excel</button>
           </div>
           <div class="table-wrap">
             <table>
@@ -551,10 +551,10 @@
 <!-- Toast -->
 <div class="toast-container" id="toast-container"></div>
 
-<script src="../js/supabase.js"></script>
-<script src="../js/auth.js"></script>
-<script src="../js/export.js"></script>
-<script src="../js/admin.js"></script>
+<script src="../js/supabase.js?v=2.1"></script>
+<script src="../js/auth.js?v=2.1"></script>
+<script src="../js/export.js?v=2.1"></script>
+<script src="../js/admin.js?v=2.1"></script>
 <script>
   // Sidebar toggle
   function toggleSidebar() {
