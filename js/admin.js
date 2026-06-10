@@ -291,6 +291,16 @@ async function bulkDeleteEmployees() {
   loadEmployees();
 }
 
+// Arabic and case-insensitive string normalization helper
+function normalizeDeptName(str) {
+  if (!str) return '';
+  return str.trim()
+    .toLowerCase()
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي');
+}
+
 // Excel upload for employees
 async function uploadEmployeesFile(file) {
   if (!file) return;
@@ -301,7 +311,9 @@ async function uploadEmployeesFile(file) {
 
   const { data: depts } = await db.from('departments').select('id, name');
   const deptNameToId = {};
-  depts?.forEach(d => { deptNameToId[d.name] = d.id; });
+  depts?.forEach(d => {
+    deptNameToId[normalizeDeptName(d.name)] = d.id;
+  });
 
   const progress = $('emp-upload-progress');
   const statusEl = $('emp-upload-status');
@@ -309,7 +321,25 @@ async function uploadEmployeesFile(file) {
 
   let done = 0;
   for (const row of rows) {
-    const deptId = deptNameToId[row.Department] || null;
+    const deptName = row.Department ? row.Department.trim() : '';
+    const deptKey = normalizeDeptName(deptName);
+    let deptId = deptNameToId[deptKey] || null;
+
+    if (deptName && !deptId) {
+      // Department does not exist, insert it on the fly
+      const { data: newDept, error: deptErr } = await db
+        .from('departments')
+        .insert({ name: deptName })
+        .select('id')
+        .single();
+      if (!deptErr && newDept) {
+        deptId = newDept.id;
+        deptNameToId[deptKey] = deptId; // Cache it
+      } else {
+        console.error('Failed to auto-create department:', deptName, deptErr);
+      }
+    }
+
     const payload = {
       sap: row.SAP,
       name: row.Name,
