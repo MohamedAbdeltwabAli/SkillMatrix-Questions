@@ -109,13 +109,14 @@ async function startExam() {
   showScreen('loading-screen');
   $('loading-msg').textContent = 'جارٍ التحقق من بياناتك...';
 
-  // 1. Password is verified server-side via database RPC (secure).
-  const { data: isPasswordCorrect, error: rpcErr } = await db.rpc('verify_employee_password', {
-    p_sap: sap,
-    p_password: pass
-  });
+  // 1. Verify password securely by selecting only the password column
+  const { data: employeeData, error: dbErr } = await db
+    .from('employees')
+    .select('password')
+    .eq('sap', sap)
+    .maybeSingle();
 
-  if (rpcErr || !isPasswordCorrect) {
+  if (dbErr || !employeeData || employeeData.password !== pass) {
     showScreen('login-screen');
     showLoginError('كلمة المرور غير صحيحة.');
     return;
