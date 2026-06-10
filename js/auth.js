@@ -41,13 +41,14 @@ async function login(email, password) {
   const { data, error } = await db.auth.signInWithPassword({ email, password });
   if (error) return { user: null, error: error.message };
 
-  const { data: userRow } = await db
+  const { data: userRow, error: profileErr } = await db
     .from('users')
     .select('id, email, role, name')
     .eq('id', data.user.id)
     .single();
 
-  if (!userRow) {
+  if (profileErr || !userRow) {
+    console.error('users table query failed:', profileErr, '| auth uid:', data.user.id);
     await db.auth.signOut();
     return { user: null, error: 'المستخدم غير مسجل في النظام. تواصل مع المسؤول.' };
   }
