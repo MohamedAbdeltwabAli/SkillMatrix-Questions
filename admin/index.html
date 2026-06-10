@@ -136,7 +136,7 @@
         <div class="bulk-actions" id="bulk-actions-bar">
           <span>تم تحديد <strong id="bulk-count">0</strong> موظف</span>
           <button class="btn btn-danger btn-sm" onclick="bulkDeleteEmployees()">حذف المحدد</button>
-          <button class="btn btn-ghost btn-sm" onclick="exportEmployees(allEmployees)">تصدير Excel</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportSelectedEmployees()">تصدير Excel</button>
         </div>
 
         <div class="section-card">
@@ -189,6 +189,14 @@
       <!-- TAB: QUESTIONS                                  -->
       <!-- ═══════════════════════════════════════════════ -->
       <div class="tab-panel" id="panel-questions">
+
+        <!-- Bulk actions bar -->
+        <div class="bulk-actions" id="q-bulk-actions-bar">
+          <span>تم تحديد <strong id="q-bulk-count">0</strong> سؤال</span>
+          <button class="btn btn-danger btn-sm" onclick="bulkDeleteQuestions()">حذف المحدد</button>
+          <button class="btn btn-ghost btn-sm" onclick="exportSelectedQuestions()">تصدير Excel</button>
+        </div>
+
         <div class="section-card">
           <div class="section-card-header">
             <span class="section-card-title">❓ بنك الأسئلة</span>
@@ -207,6 +215,7 @@
               <button class="btn btn-accent btn-sm" onclick="$('q-upload-input').click()">⬆ رفع Excel</button>
               <input type="file" id="q-upload-input" accept=".xlsx,.csv" style="display:none;"
                      onchange="uploadQuestionsFile(this.files[0])" />
+              <button class="btn btn-ghost btn-sm" onclick="exportQuestions(allQuestions)">⬇ تصدير</button>
             </div>
           </div>
 
@@ -222,6 +231,8 @@
             <table>
               <thead>
                 <tr>
+                  <th style="width:40px;"><input type="checkbox" id="select-all-q"
+                      onchange="document.querySelectorAll('.q-check').forEach(cb=>cb.checked=this.checked);updateQBulkBar();" /></th>
                   <th>رقم</th><th>الفئة</th><th>النوع</th>
                   <th>السؤال</th><th>الإجابة</th><th>الإجراءات</th>
                 </tr>

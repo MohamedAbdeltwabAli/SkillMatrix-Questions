@@ -146,6 +146,42 @@ function exportQuestionAnalysis(questions, deptBreakdown = []) {
 }
 
 /**
+ * Export questions bank to Excel.
+ * @param {Array} questions - array of question objects
+ */
+function exportQuestions(questions) {
+  const headers = ['رقم السؤال', 'الفئة', 'النوع', 'السؤال', 'الخيار A', 'الخيار B', 'الخيار C', 'الخيار D', 'الإجابة الصحيحة'];
+  const rows = questions.map(q => [
+    q.q_id,
+    q.category,
+    q.type === 'mcq' ? 'اختيار متعدد' : 'صح/خطأ',
+    q.question,
+    q.opt_a || '',
+    q.opt_b || '',
+    q.opt_c || '',
+    q.opt_d || '',
+    q.answer,
+  ]);
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  ws['!cols'] = [
+    { wch: 12 }, { wch: 15 }, { wch: 14 }, { wch: 50 },
+    { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 14 }
+  ];
+
+  headers.forEach((_, i) => {
+    const cell = XLSX.utils.encode_cell({ r: 0, c: i });
+    if (ws[cell]) ws[cell].s = cellStyle('1A3A6B', true);
+  });
+
+  ws['!dir'] = 'rtl';
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'بنك الأسئلة');
+  XLSX.writeFile(wb, `الأسئلة_${dateStamp()}.xlsx`);
+}
+
+/**
  * Export employees list to Excel.
  */
 function exportEmployees(employees) {

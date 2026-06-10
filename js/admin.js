@@ -113,9 +113,13 @@ function renderEmployees(list) {
   const tbody = $('emp-tbody');
   if (!tbody) return;
 
+  const selectAll = $('select-all-emp');
+  if (selectAll) selectAll.checked = false;
+
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
       <div class="empty-icon">👥</div><p>لا يوجد موظفون</p></div></td></tr>`;
+    updateBulkBar();
     return;
   }
 
@@ -156,6 +160,7 @@ function renderEmployees(list) {
   document.querySelectorAll('.emp-check').forEach(cb => {
     cb.addEventListener('change', updateBulkBar);
   });
+  updateBulkBar();
 }
 
 function filterEmployees() {
@@ -400,14 +405,19 @@ function renderQuestions(list) {
   const tbody = $('q-tbody');
   if (!tbody) return;
 
+  const selectAll = $('select-all-q');
+  if (selectAll) selectAll.checked = false;
+
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
       <div class="empty-icon">❓</div><p>لا توجد أسئلة</p></div></td></tr>`;
+    updateQBulkBar();
     return;
   }
 
   tbody.innerHTML = list.map(q => `
     <tr>
+      <td><input type="checkbox" class="q-check" data-id="${q.id}" onchange="updateQBulkBar()" /></td>
       <td class="en">${q.q_id}</td>
       <td>${q.category}</td>
       <td><span class="badge ${q.type==='mcq'?'badge-info':'badge-muted'}">
@@ -425,6 +435,7 @@ function renderQuestions(list) {
       </td>
     </tr>
   `).join('');
+  updateQBulkBar();
 }
 
 function filterQuestions() {
@@ -519,6 +530,37 @@ async function deleteQuestion(id) {
   if (error) { toast(error.message, 'error'); return; }
   toast('تم حذف السؤال', 'success');
   loadQuestions();
+}
+
+function updateQBulkBar() {
+  const checked = document.querySelectorAll('.q-check:checked').length;
+  const bar = $('q-bulk-actions-bar');
+  if (bar) {
+    $('q-bulk-count').textContent = checked;
+    bar.classList.toggle('visible', checked > 0);
+  }
+}
+
+async function bulkDeleteQuestions() {
+  const ids = [...document.querySelectorAll('.q-check:checked')].map(cb => cb.dataset.id);
+  if (!ids.length) return;
+  if (!await confirmDlg(`هل تريد حذف ${ids.length} سؤال؟`)) return;
+  const { error } = await db.from('questions').delete().in('id', ids);
+  if (error) { toast(error.message, 'error'); return; }
+  toast(`تم حذف ${ids.length} سؤال`, 'success');
+  loadQuestions();
+}
+
+function exportSelectedEmployees() {
+  const ids = [...document.querySelectorAll('.emp-check:checked')].map(cb => cb.dataset.id);
+  const selected = allEmployees.filter(e => ids.includes(e.id));
+  exportEmployees(selected);
+}
+
+function exportSelectedQuestions() {
+  const ids = [...document.querySelectorAll('.q-check:checked')].map(cb => cb.dataset.id);
+  const selected = allQuestions.filter(q => ids.includes(q.id));
+  exportQuestions(selected);
 }
 
 // ────────────────────────────────────────────────────────────
