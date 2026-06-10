@@ -34,6 +34,19 @@ body {
 
 .sidebar.collapsed { width: 68px; }
 
+/* When collapsed, hide the logo image and center the toggle icon to prevent layout overflow */
+.sidebar.collapsed .sidebar-header img {
+  display: none;
+}
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 1.2rem 0;
+}
+.sidebar.collapsed .sidebar-toggle {
+  margin: 0 auto;
+}
+
+
 .sidebar-header {
   padding: 1.2rem 1rem;
   display: flex;
@@ -193,7 +206,7 @@ body {
   overflow: hidden;
 }
 .btn-logout:hover { background: rgba(192,57,43,0.3); }
-.sidebar.collapsed .btn-logout span { display: none; }
+.sidebar.collapsed .btn-logout span:last-child { display: none; }
 
 /* ── MAIN CONTENT ────────────────────────────────────────── */
 .main {
