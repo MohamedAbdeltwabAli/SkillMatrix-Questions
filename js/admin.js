@@ -845,14 +845,14 @@ async function viewResponses(resultId) {
 async function loadAnalysis() {
   const tbody = $('analysis-tbody');
   if (!tbody) return;
-  tbody.innerHTML = skeletonRows(7);
+  tbody.innerHTML = skeletonRows(9);
 
   const { data: responses } = await db
     .from('responses')
     .select('q_id, question_text, category, type, is_correct, department_name');
 
   if (!responses?.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
       <div class="empty-icon">📉</div><p>لا توجد بيانات كافية للتحليل</p></div></td></tr>`;
     return;
   }
@@ -892,6 +892,9 @@ async function loadAnalysis() {
             </div>
           </div>
         </td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="viewQuestionAttempts(${q.q_id})">التفاصيل</button>
+        </td>
       </tr>
     `;
   }).join('');
@@ -929,6 +932,56 @@ function renderAnalysisChart(qs) {
       }
     }
   });
+}
+
+async function viewQuestionAttempts(qId) {
+  const modal = $('q-details-modal');
+  if (!modal) return;
+
+  const qData = analysisData.find(q => q.q_id === qId);
+  const questionText = qData ? qData.question : '';
+
+  $('q-details-title').textContent = `تفاصيل الإجابات على السؤال رقم ${qId}`;
+  $('q-details-text').textContent = questionText;
+  $('q-details-body').innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:20px;"></div></td></tr>'.repeat(5);
+  openModal('q-details-modal');
+
+  // Load all employees in memory if not already done
+  if (!allEmployees || allEmployees.length === 0) {
+    const { data } = await db.from('employees').select('sap, name');
+    allEmployees = data || [];
+  }
+
+  const { data: responses, error } = await db
+    .from('responses')
+    .select('sap, department_name, employee_answer, correct_answer, is_correct, submitted_at')
+    .eq('q_id', qId)
+    .order('submitted_at', { ascending: false });
+
+  if (error || !responses?.length) {
+    $('q-details-body').innerHTML = `<tr><td colspan="7" class="text-center text-muted">لا توجد إجابات مسجلة لهذا السؤال</td></tr>`;
+    return;
+  }
+
+  $('q-details-body').innerHTML = responses.map(r => {
+    const emp = allEmployees.find(e => e.sap === r.sap);
+    const empName = emp ? emp.name : '—';
+    return `
+      <tr style="background:${r.is_correct ? 'var(--success-light)' : 'var(--danger-light)'};">
+        <td class="en">${r.sap}</td>
+        <td>${empName}</td>
+        <td>${r.department_name}</td>
+        <td class="en" style="font-weight:700;">${r.employee_answer}</td>
+        <td class="en" style="font-weight:700;color:var(--success);">${r.correct_answer}</td>
+        <td>
+          <span class="badge ${r.is_correct ? 'badge-success' : 'badge-danger'}">
+            ${r.is_correct ? '✓' : '✗'}
+          </span>
+        </td>
+        <td class="en" style="font-size:0.8rem;">${new Date(r.submitted_at).toLocaleDateString('ar-EG')}</td>
+      </tr>
+    `;
+  }).join('');
 }
 
 // ────────────────────────────────────────────────────────────
