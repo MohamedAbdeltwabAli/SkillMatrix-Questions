@@ -633,11 +633,19 @@ function exportSelectedQuestions() {
 // TAB 3: DEPARTMENTS & CONFIG
 // ────────────────────────────────────────────────────────────
 let deptList = [];
+let allCategories = [];
 
-async function loadDepts() {
+async function loadDepts(preserveState = false) {
   const list = $('dept-list');
   if (!list) return;
-  list.innerHTML = '<div class="skeleton" style="height:40px;margin-bottom:1rem;"></div>'.repeat(3);
+  
+  let scrollPos = 0;
+  const contentEl = document.querySelector('.content');
+  if (preserveState && contentEl) {
+    scrollPos = contentEl.scrollTop;
+  } else {
+    list.innerHTML = '<div class="skeleton" style="height:120px;margin-bottom:1rem;"></div>'.repeat(3);
+  }
 
   const [{ data: depts }, { data: configs }, { data: categories }] = await Promise.all([
     db.from('departments').select('*').order('name'),
@@ -646,7 +654,12 @@ async function loadDepts() {
   ]);
 
   deptList = depts || [];
-  renderDeptList(deptList, configs || [], categories || []);
+  allCategories = categories || [];
+  renderDeptList(deptList, configs || [], allCategories);
+
+  if (preserveState && contentEl) {
+    contentEl.scrollTop = scrollPos;
+  }
 }
 
 function renderDeptList(depts, configs, categories) {
@@ -657,44 +670,38 @@ function renderDeptList(depts, configs, categories) {
     const deptConfigs = configs.filter(c => c.department_id === dept.id);
     const totalQ = deptConfigs.reduce((s, c) => s + c.count, 0);
 
-    const configRows = deptConfigs.map(c => `
-      <div class="dept-config-row">
-        <span style="flex:1;">${c.category}</span>
-        <span class="badge badge-info">${c.count} سؤال</span>
-        <button class="btn btn-danger btn-sm" onclick="deleteDeptConfig('${c.id}')">×</button>
-      </div>
-    `).join('');
-
-    const catOptions = categories.map(cat =>
-      `<option value="${cat}">${cat}</option>`
-    ).join('');
+    const categoryInputs = categories.map(cat => {
+      const existing = deptConfigs.find(c => c.category === cat);
+      const count = existing ? existing.count : 0;
+      const safeCat = encodeURIComponent(cat);
+      return `
+        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 0.6rem;">
+          <label style="flex:1; margin-bottom:0; font-size:0.88rem; font-weight:600;">${cat}</label>
+          <input type="number" id="cnt-${dept.id}-${safeCat}" value="${count}" min="0"
+                 style="width:70px;padding:0.4rem;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;text-align:center;font-weight:700;" />
+        </div>
+      `;
+    }).join('');
 
     return `
-      <div class="card mb-2" style="margin-bottom:1rem;">
-        <div class="flex items-center gap-2" style="justify-content:space-between;margin-bottom:0.75rem;">
-          <h3 style="font-size:1rem;font-weight:700;">${dept.name}</h3>
+      <div class="card" style="display:flex; flex-direction:column; padding:1.25rem;">
+        <div class="flex items-center gap-2" style="justify-content:space-between;margin-bottom:1rem;border-bottom:1px solid var(--border);padding-bottom:0.75rem;">
+          <h3 style="font-size:1.1rem;font-weight:800;color:var(--text);margin:0;">${dept.name}</h3>
           <div class="flex gap-1">
-            <button class="btn btn-ghost btn-sm" onclick="renameDept('${dept.id}','${dept.name}')">تعديل</button>
-            <button class="btn btn-danger btn-sm" onclick="deleteDept('${dept.id}')">حذف</button>
+            <button class="btn btn-ghost btn-sm" onclick="renameDept('${dept.id}','${dept.name}')" title="تعديل الاسم">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteDept('${dept.id}')" title="حذف القسم">🗑️</button>
           </div>
         </div>
 
-        <div>${configRows || '<p class="text-muted" style="font-size:0.85rem;">لم يتم تهيئة الاختبار بعد</p>'}</div>
-
-        <div class="dept-summary">
-          إجمالي الأسئلة: <strong>${totalQ}</strong>
-          ${deptConfigs.map(c => `• ${c.category}: ${c.count}`).join('  ')}
+        <div class="dept-summary" style="margin-top:0; margin-bottom:1.25rem; background:var(--primary-light); color:#fff; border:none; text-align:center; padding:0.5rem; border-radius:8px;">
+          إجمالي الأسئلة: <strong style="font-size:1.1rem; color:#fff;">${totalQ}</strong>
         </div>
 
-        <div class="flex gap-1 mt-2" style="flex-wrap:wrap;">
-          <select id="cat-sel-${dept.id}" class="filter-select">
-            <option value="">اختر الفئة</option>
-            ${catOptions}
-          </select>
-          <input type="number" id="cnt-${dept.id}" placeholder="العدد" min="1"
-                 style="width:90px;padding:0.5rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;" />
-          <button class="btn btn-primary btn-sm" onclick="addDeptConfig('${dept.id}')">+ إضافة فئة</button>
+        <div style="flex:1;">
+          ${categoryInputs || '<p class="text-muted" style="font-size:0.85rem;text-align:center;">لا توجد فئات أسئلة متاحة.</p>'}
         </div>
+
+        <button class="btn btn-primary w-full" style="margin-top:1rem;" onclick="saveDeptConfigBulk('${dept.id}', event)">💾 حفظ الإعدادات</button>
       </div>
     `;
   }).join('');
@@ -716,7 +723,7 @@ async function renameDept(id, current) {
   const { error } = await db.from('departments').update({ name: name.trim() }).eq('id', id);
   if (error) { toast(error.message, 'error'); return; }
   toast('تم تحديث اسم القسم', 'success');
-  loadDepts();
+  loadDepts(true);
 }
 
 async function deleteDept(id) {
@@ -724,32 +731,52 @@ async function deleteDept(id) {
   const { error } = await db.from('departments').delete().eq('id', id);
   if (error) { toast(error.message, 'error'); return; }
   toast('تم حذف القسم', 'success');
-  loadDepts();
+  loadDepts(true);
 }
 
-async function addDeptConfig(deptId) {
-  const category = $(`cat-sel-${deptId}`)?.value;
-  const count    = parseInt($(`cnt-${deptId}`)?.value);
+async function saveDeptConfigBulk(deptId, event) {
+  const updates = [];
+  const deletes = [];
 
-  if (!category || !count || count < 1) {
-    toast('يرجى اختيار الفئة وعدد الأسئلة', 'error'); return;
+  allCategories.forEach(cat => {
+    const safeCat = encodeURIComponent(cat);
+    const input = $(`cnt-${deptId}-${safeCat}`);
+    if (input) {
+      const count = parseInt(input.value) || 0;
+      if (count > 0) {
+        updates.push({ department_id: deptId, category: cat, count });
+      } else {
+        deletes.push(cat);
+      }
+    }
+  });
+
+  const btn = event ? event.currentTarget : null;
+  let originalText = '';
+  if (btn) {
+    originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ جاري الحفظ...';
+    btn.disabled = true;
   }
 
-  const { error } = await db.from('deptconfig').upsert(
-    { department_id: deptId, category, count },
-    { onConflict: 'department_id,category' }
-  );
+  try {
+    if (deletes.length > 0) {
+      await db.from('deptconfig').delete().eq('department_id', deptId).in('category', deletes);
+    }
+    if (updates.length > 0) {
+      const { error } = await db.from('deptconfig').upsert(updates, { onConflict: 'department_id,category' });
+      if (error) throw error;
+    }
 
-  if (error) { toast(error.message, 'error'); return; }
-  toast('تم حفظ إعداد الفئة', 'success');
-  loadDepts();
-}
-
-async function deleteDeptConfig(id) {
-  const { error } = await db.from('deptconfig').delete().eq('id', id);
-  if (error) { toast(error.message, 'error'); return; }
-  toast('تم حذف الفئة', 'success');
-  loadDepts();
+    toast('تم حفظ إعدادات القسم بنجاح', 'success');
+    await loadDepts(true);
+  } catch (err) {
+    toast(err.message, 'error');
+    if (btn) {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+    }
+  }
 }
 
 // ────────────────────────────────────────────────────────────
