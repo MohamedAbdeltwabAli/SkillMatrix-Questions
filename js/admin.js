@@ -671,11 +671,11 @@ function renderDeptList(depts, configs, categories) {
     const totalQ = deptConfigs.reduce((s, c) => s + c.count, 0);
 
     const configRows = deptConfigs.map(c => `
-      <div class="form-group config-item" data-cat="${c.category}" style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
-        <span style="flex:1; font-size:0.88rem; font-weight:600;">${c.category}</span>
+      <div class="form-group config-item" data-cat="${c.category}" style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.5rem; flex-wrap:nowrap; overflow:hidden;">
+        <span title="${c.category}" style="flex:1 1 0; min-width:0; font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.category}</span>
         <input type="number" class="cat-count-input" value="${c.count}" min="1"
-               style="width:70px;padding:0.4rem;border:1.5px solid var(--border);border-radius:6px;text-align:center;" />
-        <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:0.3rem 0.5rem;">×</button>
+               style="flex:0 0 60px; width:60px; padding:0.4rem; border:1.5px solid var(--border); border-radius:6px; text-align:center;" />
+        <button class="btn btn-danger btn-sm" onclick="removeCategoryRow(this)" style="flex:0 0 auto; padding:0.3rem 0.5rem;">×</button>
       </div>
     `).join('');
 
@@ -730,13 +730,19 @@ window.addCategoryRow = function(deptId, selectEl) {
   div.style.cssText = 'display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;';
   
   div.innerHTML = `
-    <span style="flex:1; font-size:0.88rem; font-weight:600;">${cat}</span>
-    <input type="number" class="cat-count-input" value="1" min="1" style="width:70px;padding:0.4rem;border:1.5px solid var(--border);border-radius:6px;text-align:center;" />
-    <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:0.3rem 0.5rem;">×</button>
+    <span title="${cat}" style="flex:1 1 0; min-width:0; font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cat}</span>
+    <input type="number" class="cat-count-input" value="1" min="1" style="flex:0 0 60px; width:60px; padding:0.4rem; border:1.5px solid var(--border); border-radius:6px; text-align:center;" />
+    <button class="btn btn-danger btn-sm" onclick="removeCategoryRow(this)" style="flex:0 0 auto; padding:0.3rem 0.5rem;">×</button>
   `;
   
   list.appendChild(div);
   selectEl.value = '';
+};
+
+window.removeCategoryRow = async function(btn) {
+  if (await confirmDlg('هل أنت متأكد من إزالة هذه الفئة مؤقتاً؟ (لن يتم الحفظ النهائي إلا بالضغط على حفظ الإعدادات)')) {
+    btn.parentElement.remove();
+  }
 };
 
 
