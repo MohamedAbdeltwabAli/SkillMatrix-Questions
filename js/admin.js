@@ -718,7 +718,7 @@ window.addCategoryRow = function(deptId, selectEl) {
   if (!cat) return;
   
   const list = $(`cat-list-${deptId}`);
-  if (list.querySelector(\`[data-cat="\${cat}"]\`)) {
+  if (list.querySelector(`[data-cat="${cat}"]`)) {
     toast('هذه الفئة مضافة بالفعل', 'warning');
     selectEl.value = '';
     return;
@@ -729,11 +729,11 @@ window.addCategoryRow = function(deptId, selectEl) {
   div.dataset.cat = cat;
   div.style.cssText = 'display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;';
   
-  div.innerHTML = \`
-    <span style="flex:1; font-size:0.88rem; font-weight:600;">\${cat}</span>
+  div.innerHTML = `
+    <span style="flex:1; font-size:0.88rem; font-weight:600;">${cat}</span>
     <input type="number" class="cat-count-input" value="1" min="1" style="width:70px;padding:0.4rem;border:1.5px solid var(--border);border-radius:6px;text-align:center;" />
     <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:0.3rem 0.5rem;">×</button>
-  \`;
+  `;
   
   list.appendChild(div);
   selectEl.value = '';
