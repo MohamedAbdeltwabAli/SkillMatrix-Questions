@@ -670,18 +670,16 @@ function renderDeptList(depts, configs, categories) {
     const deptConfigs = configs.filter(c => c.department_id === dept.id);
     const totalQ = deptConfigs.reduce((s, c) => s + c.count, 0);
 
-    const categoryInputs = categories.map(cat => {
-      const existing = deptConfigs.find(c => c.category === cat);
-      const count = existing ? existing.count : 0;
-      const safeCat = encodeURIComponent(cat);
-      return `
-        <div class="form-group" style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 0.6rem;">
-          <label style="flex:1; margin-bottom:0; font-size:0.88rem; font-weight:600;">${cat}</label>
-          <input type="number" id="cnt-${dept.id}-${safeCat}" value="${count}" min="0"
-                 style="width:70px;padding:0.4rem;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;text-align:center;font-weight:700;" />
-        </div>
-      `;
-    }).join('');
+    const configRows = deptConfigs.map(c => `
+      <div class="form-group config-item" data-cat="${c.category}" style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
+        <span style="flex:1; font-size:0.88rem; font-weight:600;">${c.category}</span>
+        <input type="number" class="cat-count-input" value="${c.count}" min="1"
+               style="width:70px;padding:0.4rem;border:1.5px solid var(--border);border-radius:6px;text-align:center;" />
+        <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:0.3rem 0.5rem;">×</button>
+      </div>
+    `).join('');
+
+    const catOptions = categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
 
     return `
       <div class="card" style="display:flex; flex-direction:column; padding:1.25rem;">
@@ -697,15 +695,51 @@ function renderDeptList(depts, configs, categories) {
           إجمالي الأسئلة: <strong style="font-size:1.1rem; color:#fff;">${totalQ}</strong>
         </div>
 
-        <div style="flex:1;">
-          ${categoryInputs || '<p class="text-muted" style="font-size:0.85rem;text-align:center;">لا توجد فئات أسئلة متاحة.</p>'}
+        <div style="flex:1; margin-bottom: 1rem;">
+          <h4 style="font-size:0.85rem; margin-bottom:0.75rem; color:var(--text-muted);">الفئات المحددة للاختبار:</h4>
+          <div id="cat-list-${dept.id}">
+            ${configRows}
+          </div>
+          
+          <select class="filter-select mt-2" style="width:100%;" onchange="addCategoryRow('${dept.id}', this)">
+            <option value="">+ إضافة فئة للقسم</option>
+            ${catOptions}
+          </select>
         </div>
 
-        <button class="btn btn-primary w-full" style="margin-top:1rem;" onclick="saveDeptConfigBulk('${dept.id}', event)">💾 حفظ الإعدادات</button>
+        <button class="btn btn-primary w-full" style="margin-top:auto;" onclick="saveDeptConfigBulk('${dept.id}', event)">💾 حفظ الإعدادات</button>
       </div>
     `;
   }).join('');
 }
+
+window.addCategoryRow = function(deptId, selectEl) {
+  const cat = selectEl.value;
+  if (!cat) return;
+  
+  const list = $(`cat-list-${deptId}`);
+  if (list.querySelector(\`[data-cat="\${cat}"]\`)) {
+    toast('هذه الفئة مضافة بالفعل', 'warning');
+    selectEl.value = '';
+    return;
+  }
+  
+  const div = document.createElement('div');
+  div.className = 'form-group config-item';
+  div.dataset.cat = cat;
+  div.style.cssText = 'display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;';
+  
+  div.innerHTML = \`
+    <span style="flex:1; font-size:0.88rem; font-weight:600;">\${cat}</span>
+    <input type="number" class="cat-count-input" value="1" min="1" style="width:70px;padding:0.4rem;border:1.5px solid var(--border);border-radius:6px;text-align:center;" />
+    <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()" style="padding:0.3rem 0.5rem;">×</button>
+  \`;
+  
+  list.appendChild(div);
+  selectEl.value = '';
+};
+
+
 
 function newDept() {
   const name = prompt('اسم القسم الجديد:');
@@ -735,19 +769,18 @@ async function deleteDept(id) {
 }
 
 async function saveDeptConfigBulk(deptId, event) {
-  const updates = [];
-  const deletes = [];
+  const list = $(`cat-list-${deptId}`);
+  if (!list) return;
 
-  allCategories.forEach(cat => {
-    const safeCat = encodeURIComponent(cat);
-    const input = $(`cnt-${deptId}-${safeCat}`);
-    if (input) {
-      const count = parseInt(input.value) || 0;
-      if (count > 0) {
-        updates.push({ department_id: deptId, category: cat, count });
-      } else {
-        deletes.push(cat);
-      }
+  const items = list.querySelectorAll('.config-item');
+  const updates = [];
+
+  items.forEach(item => {
+    const cat = item.dataset.cat;
+    const input = item.querySelector('.cat-count-input');
+    const count = parseInt(input.value) || 0;
+    if (count > 0) {
+      updates.push({ department_id: deptId, category: cat, count });
     }
   });
 
@@ -760,11 +793,12 @@ async function saveDeptConfigBulk(deptId, event) {
   }
 
   try {
-    if (deletes.length > 0) {
-      await db.from('deptconfig').delete().eq('department_id', deptId).in('category', deletes);
-    }
+    // Delete all existing configs for this dept
+    await db.from('deptconfig').delete().eq('department_id', deptId);
+    
+    // Insert the new updated list
     if (updates.length > 0) {
-      const { error } = await db.from('deptconfig').upsert(updates, { onConflict: 'department_id,category' });
+      const { error } = await db.from('deptconfig').insert(updates);
       if (error) throw error;
     }
 
