@@ -936,20 +936,38 @@ async function viewResponses(resultId) {
     return;
   }
 
-  $('responses-body').innerHTML = data.map(r => `
+  const qIds = data.map(r => r.q_id);
+  const { data: qData } = await db.from('questions').select('q_id, type, opt_a, opt_b, opt_c, opt_d').in('q_id', qIds);
+  const qMap = {};
+  qData?.forEach(q => qMap[q.q_id] = q);
+
+  function getAnsText(ans, qInfo) {
+    if (!ans) return '—';
+    if (qInfo?.type === 't/f') return ans === '1' ? 'صح' : (ans === '0' ? 'خطأ' : ans);
+    if (!qInfo) return ans;
+    const key = `opt_${ans.toLowerCase()}`;
+    return qInfo[key] || ans;
+  }
+
+  $('responses-body').innerHTML = data.map(r => {
+    const qInfo = qMap[r.q_id];
+    const empText = getAnsText(r.employee_answer, qInfo);
+    const corrText = getAnsText(r.correct_answer, qInfo);
+    return `
     <tr style="background:${r.is_correct ? 'var(--success-light)' : 'var(--danger-light)'};">
       <td class="en">${r.q_id}</td>
       <td style="text-align:right;font-size:0.85rem;">${r.question_text}</td>
       <td>${r.category}</td>
-      <td class="en" style="font-weight:700;">${r.employee_answer}</td>
-      <td class="en" style="font-weight:700;color:var(--success);">${r.correct_answer}</td>
+      <td style="font-weight:700;">${empText}</td>
+      <td style="font-weight:700;color:var(--success);">${corrText}</td>
       <td>
         <span class="badge ${r.is_correct ? 'badge-success' : 'badge-danger'}">
           ${r.is_correct ? '✓' : '✗'}
         </span>
       </td>
     </tr>
-  `).join('');
+    `;
+  }).join('');
 }
 
 // ────────────────────────────────────────────────────────────
@@ -972,20 +990,46 @@ async function loadAnalysis() {
     return;
   }
 
-  // Aggregate per question
+  // Aggregate per question, category, and department
   const qMap = {};
+  const catMap = {};
+  const deptMap = {};
+
   responses.forEach(r => {
+    // Question Map
     if (!qMap[r.q_id]) {
       qMap[r.q_id] = { q_id: r.q_id, question: r.question_text, category: r.category, type: r.type, attempts: 0, correct: 0, wrong: 0 };
     }
     qMap[r.q_id].attempts++;
     if (r.is_correct) qMap[r.q_id].correct++;
     else qMap[r.q_id].wrong++;
+
+    // Category Map
+    if (r.category) {
+      if (!catMap[r.category]) catMap[r.category] = { category: r.category, attempts: 0, correct: 0 };
+      catMap[r.category].attempts++;
+      if (r.is_correct) catMap[r.category].correct++;
+    }
+
+    // Department Map
+    if (r.department_name) {
+      if (!deptMap[r.department_name]) deptMap[r.department_name] = { dept: r.department_name, attempts: 0, correct: 0 };
+      deptMap[r.department_name].attempts++;
+      if (r.is_correct) deptMap[r.department_name].correct++;
+    }
   });
 
   analysisData = Object.values(qMap)
     .map(q => ({ ...q, success_rate: Math.round((q.correct / q.attempts) * 100) }))
     .sort((a, b) => a.success_rate - b.success_rate);
+
+  const catData = Object.values(catMap)
+    .map(c => ({ name: c.category, rate: Math.round((c.correct / c.attempts) * 100) }))
+    .sort((a, b) => b.rate - a.rate);
+
+  const deptData = Object.values(deptMap)
+    .map(d => ({ name: d.dept, rate: Math.round((d.correct / d.attempts) * 100) }))
+    .sort((a, b) => b.rate - a.rate);
 
   tbody.innerHTML = analysisData.map(q => {
     const rateClass = q.success_rate < 50 ? 'rate-row-red' : q.success_rate < 70 ? 'rate-row-orange' : 'rate-row-green';
@@ -1014,11 +1058,12 @@ async function loadAnalysis() {
     `;
   }).join('');
 
-  // Bar chart - top 10 worst
-  renderAnalysisChart(analysisData.slice(0, 10));
+  // Render Category and Department Charts
+  renderAnalysisCharts(catData, deptData);
 }
 
-let analysisChart;
+let catChart;
+let deptChart;
 let analysisData = []; // module-level so the export button can access it
 let allAnalysisResponses = [];
 
@@ -1045,32 +1090,55 @@ function exportAnalysisReport() {
   exportQuestionAnalysis(analysisData, detailedAttempts);
 }
 
-function renderAnalysisChart(qs) {
-  const canvas = $('analysis-chart');
-  if (!canvas) return;
-  if (analysisChart) analysisChart.destroy();
-
-  analysisChart = new Chart(canvas, {
-    type: 'bar',
-    data: {
-      labels: qs.map(q => `س${q.q_id}`),
-      datasets: [{
-        label: 'نسبة النجاح %',
-        data: qs.map(q => q.success_rate),
-        backgroundColor: qs.map(q =>
-          q.success_rate < 50 ? '#c0392b' : q.success_rate < 70 ? '#e67e22' : '#1a7a4a'
-        ),
-        borderRadius: 6,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { min: 0, max: 100, ticks: { callback: v => v + '%' } }
+function renderAnalysisCharts(catData, deptData) {
+  const catCanvas = $('analysis-cat-chart');
+  const deptCanvas = $('analysis-dept-chart');
+  
+  if (catCanvas) {
+    if (catChart) catChart.destroy();
+    catChart = new Chart(catCanvas, {
+      type: 'bar',
+      data: {
+        labels: catData.map(c => c.name),
+        datasets: [{
+          label: 'نسبة النجاح %',
+          data: catData.map(c => c.rate),
+          backgroundColor: catData.map(c =>
+            c.rate < 50 ? '#c0392b' : c.rate < 70 ? '#e67e22' : '#1a7a4a'
+          ),
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } }
       }
-    }
-  });
+    });
+  }
+
+  if (deptCanvas) {
+    if (deptChart) deptChart.destroy();
+    deptChart = new Chart(deptCanvas, {
+      type: 'bar',
+      data: {
+        labels: deptData.map(d => d.name),
+        datasets: [{
+          label: 'نسبة النجاح %',
+          data: deptData.map(d => d.rate),
+          backgroundColor: deptData.map(d =>
+            d.rate < 50 ? '#c0392b' : d.rate < 70 ? '#e67e22' : '#2980b9'
+          ),
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } }
+      }
+    });
+  }
 }
 
 async function viewQuestionAttempts(qId) {
@@ -1102,17 +1170,30 @@ async function viewQuestionAttempts(qId) {
     return;
   }
 
+  const { data: qOptionData } = await db.from('questions').select('type, opt_a, opt_b, opt_c, opt_d').eq('q_id', qId).single();
+
+  function getAnsText(ans) {
+    if (!ans) return '—';
+    if (qOptionData?.type === 't/f') return ans === '1' ? 'صح' : (ans === '0' ? 'خطأ' : ans);
+    if (!qOptionData) return ans;
+    const key = `opt_${ans.toLowerCase()}`;
+    return qOptionData[key] || ans;
+  }
+
   $('q-details-body').innerHTML = responses.map(r => {
     const emp = allEmployees.find(e => e.sap === r.sap);
     const empName = emp ? emp.name : '—';
     const attemptNum = r.results?.attempt_number || 1;
+    const empText = getAnsText(r.employee_answer);
+    const corrText = getAnsText(r.correct_answer);
+
     return `
       <tr style="background:${r.is_correct ? 'var(--success-light)' : 'var(--danger-light)'};">
         <td class="en">${r.sap}</td>
         <td>${empName}</td>
         <td>${r.department_name}</td>
-        <td class="en" style="font-weight:700;">${r.employee_answer}</td>
-        <td class="en" style="font-weight:700;color:var(--success);">${r.correct_answer}</td>
+        <td style="font-weight:700;">${empText}</td>
+        <td style="font-weight:700;color:var(--success);">${corrText}</td>
         <td>
           <span class="badge ${r.is_correct ? 'badge-success' : 'badge-danger'}">
             ${r.is_correct ? '✓' : '✗'}

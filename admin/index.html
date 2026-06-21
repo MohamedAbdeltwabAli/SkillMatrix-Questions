@@ -298,9 +298,15 @@
       <!-- TAB: ANALYSIS                                   -->
       <!-- ═══════════════════════════════════════════════ -->
       <div class="tab-panel" id="panel-analysis">
-        <div class="card mb-3">
-          <div class="chart-title">📉 أكثر 10 أسئلة صعوبة</div>
-          <canvas id="analysis-chart" height="200"></canvas>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom:1.5rem;">
+          <div class="card">
+            <div class="chart-title" style="margin-bottom:1rem;font-weight:700;color:var(--primary);">📊 نسبة النجاح لكل فئة</div>
+            <canvas id="analysis-cat-chart" height="200"></canvas>
+          </div>
+          <div class="card">
+            <div class="chart-title" style="margin-bottom:1rem;font-weight:700;color:var(--primary);">📊 نسبة النجاح لكل قسم</div>
+            <canvas id="analysis-dept-chart" height="200"></canvas>
+          </div>
         </div>
 
         <div class="section-card">

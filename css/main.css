@@ -239,7 +239,7 @@ input:focus, select:focus, textarea:focus {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   padding: 2rem;
-  width: min(520px, 96vw);
+  width: min(900px, 96vw);
   max-height: 90vh;
   overflow-y: auto;
   transform: scale(0.9);
