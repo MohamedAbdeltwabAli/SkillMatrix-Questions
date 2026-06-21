@@ -990,6 +990,62 @@ async function loadAnalysis() {
     return;
   }
 
+  // Populate filters
+  const deptFilter = $('analysis-dept-filter');
+  const catFilter = $('analysis-cat-filter');
+  
+  if (deptFilter) {
+    const depts = [...new Set(allAnalysisResponses.map(r => r.department_name).filter(Boolean))].sort();
+    const current = deptFilter.value;
+    deptFilter.innerHTML = `<option value="">جميع الأقسام</option>` + depts.map(d => `<option value="${d}" ${d === current ? 'selected' : ''}>${d}</option>`).join('');
+  }
+
+  if (catFilter) {
+    const cats = [...new Set(allAnalysisResponses.map(r => r.category).filter(Boolean))].sort();
+    const current = catFilter.value;
+    catFilter.innerHTML = `<option value="">جميع الفئات</option>` + cats.map(c => `<option value="${c}" ${c === current ? 'selected' : ''}>${c}</option>`).join('');
+  }
+
+  window.filterAnalysis();
+}
+
+window.filterAnalysis = function() {
+  const dept = $('analysis-dept-filter')?.value || '';
+  const cat  = $('analysis-cat-filter')?.value || '';
+  const from = $('analysis-date-from')?.value;
+  const to   = $('analysis-date-to')?.value;
+
+  const filtered = allAnalysisResponses.filter(r => {
+    const md = !dept || r.department_name === dept;
+    const mc = !cat  || r.category === cat;
+    const mf = !from || new Date(r.submitted_at) >= new Date(from);
+    const mt = !to   || new Date(r.submitted_at) <= new Date(to + 'T23:59:59');
+    return md && mc && mf && mt;
+  });
+
+  renderAnalysis(filtered);
+};
+
+window.clearAnalysisFilters = function() {
+  if ($('analysis-dept-filter')) $('analysis-dept-filter').value = '';
+  if ($('analysis-cat-filter')) $('analysis-cat-filter').value = '';
+  if ($('analysis-date-from')) $('analysis-date-from').value = '';
+  if ($('analysis-date-to')) $('analysis-date-to').value = '';
+  window.filterAnalysis();
+};
+
+function renderAnalysis(responses) {
+  const tbody = $('analysis-tbody');
+  if (!tbody) return;
+
+  if (!responses.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
+      <div class="empty-icon">📉</div><p>لا توجد بيانات مطابقة للبحث</p></div></td></tr>`;
+    if (catChart) catChart.destroy();
+    if (deptChart) deptChart.destroy();
+    return;
+  }
+
   // Aggregate per question, category, and department
   const qMap = {};
   const catMap = {};

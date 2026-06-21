@@ -278,6 +278,7 @@
               <input type="date" id="res-date-from" class="filter-select" onchange="filterResults()" />
               <input type="date" id="res-date-to"   class="filter-select" onchange="filterResults()" />
               <button class="btn btn-accent btn-sm" onclick="exportResults(allResults)">⬇ تصدير Excel</button>
+              <button class="btn btn-danger btn-sm" onclick="exportResultsPDF()" style="background:#e74c3c;color:#fff;">📄 تصدير PDF</button>
             </div>
           </div>
           <div class="table-wrap">
@@ -298,6 +299,20 @@
       <!-- TAB: ANALYSIS                                   -->
       <!-- ═══════════════════════════════════════════════ -->
       <div class="tab-panel" id="panel-analysis">
+        <div class="card mb-3" style="padding:1rem;">
+          <div class="flex gap-1" style="flex-wrap:wrap; align-items:center;">
+            <select class="filter-select" id="analysis-dept-filter" onchange="filterAnalysis()">
+              <option value="">جميع الأقسام</option>
+            </select>
+            <select class="filter-select" id="analysis-cat-filter" onchange="filterAnalysis()">
+              <option value="">جميع الفئات</option>
+            </select>
+            <input type="date" id="analysis-date-from" class="filter-select" onchange="filterAnalysis()" />
+            <input type="date" id="analysis-date-to"   class="filter-select" onchange="filterAnalysis()" />
+            <button class="btn btn-ghost btn-sm" onclick="clearAnalysisFilters()">إلغاء الفلتر</button>
+          </div>
+        </div>
+
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; margin-bottom:1.5rem;">
           <div class="card">
             <div class="chart-title" style="margin-bottom:1rem;font-weight:700;color:var(--primary);">📊 نسبة النجاح لكل فئة</div>
@@ -312,7 +327,10 @@
         <div class="section-card">
           <div class="section-card-header">
             <span class="section-card-title">تفاصيل تحليل الأسئلة</span>
-            <button class="btn btn-accent btn-sm" onclick="exportAnalysisReport()">⬇ تصدير Excel</button>
+            <div class="flex gap-1">
+              <button class="btn btn-accent btn-sm" onclick="exportAnalysisReport()">⬇ تصدير Excel</button>
+              <button class="btn btn-danger btn-sm" onclick="exportAnalysisPDF()" style="background:#e74c3c;color:#fff;">📄 تصدير PDF</button>
+            </div>
           </div>
           <div class="table-wrap">
             <table>
@@ -573,6 +591,9 @@
 
 <!-- Toast -->
 <div class="toast-container" id="toast-container"></div>
+
+<!-- PDF Export Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 <script src="../js/supabase.js?v=2.1"></script>
 <script src="../js/auth.js?v=2.1"></script>
