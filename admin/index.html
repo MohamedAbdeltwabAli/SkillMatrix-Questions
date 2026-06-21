@@ -249,9 +249,12 @@
       <!-- TAB: DEPTS                                      -->
       <!-- ═══════════════════════════════════════════════ -->
       <div class="tab-panel" id="panel-depts">
-        <div class="page-header">
-          <h2>🏭 الأقسام وإعدادات الاختبار</h2>
-          <button class="btn btn-primary" onclick="newDept()">+ قسم جديد</button>
+        <div class="page-header" style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:1rem;">
+          <h2 style="margin:0;">🏭 الأقسام وإعدادات الاختبار</h2>
+          <div class="flex gap-1 items-center" style="flex-wrap:wrap;">
+            <input type="text" id="dept-search" class="search-input" placeholder="بحث عن قسم..." oninput="filterDepts()" />
+            <button class="btn btn-primary" onclick="newDept()">+ قسم جديد</button>
+          </div>
         </div>
         <div id="dept-list"></div>
       </div>

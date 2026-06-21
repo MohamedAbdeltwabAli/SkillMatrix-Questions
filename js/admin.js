@@ -634,6 +634,7 @@ function exportSelectedQuestions() {
 // ────────────────────────────────────────────────────────────
 let deptList = [];
 let allCategories = [];
+let allDeptConfigs = [];
 
 async function loadDepts(preserveState = false) {
   const list = $('dept-list');
@@ -654,12 +655,20 @@ async function loadDepts(preserveState = false) {
   ]);
 
   deptList = depts || [];
+  allDeptConfigs = configs || [];
   allCategories = categories || [];
-  renderDeptList(deptList, configs || [], allCategories);
+  
+  filterDepts();
 
   if (preserveState && contentEl) {
     contentEl.scrollTop = scrollPos;
   }
+}
+
+function filterDepts() {
+  const q = $('dept-search')?.value?.toLowerCase() || '';
+  const filtered = deptList.filter(d => d.name.toLowerCase().includes(q));
+  renderDeptList(filtered, allDeptConfigs, allCategories);
 }
 
 function renderDeptList(depts, configs, categories) {
@@ -671,7 +680,7 @@ function renderDeptList(depts, configs, categories) {
     const totalQ = deptConfigs.reduce((s, c) => s + c.count, 0);
 
     const configRows = deptConfigs.map(c => `
-      <div class="form-group config-item" data-cat="${c.category}" style="display:flex; align-items:center; gap:0.4rem; margin-bottom:0.5rem; flex-wrap:nowrap; overflow:hidden;">
+      <div class="config-item" data-cat="${c.category}" style="display:flex; flex-direction:row; align-items:center; gap:0.4rem; margin-bottom:0.5rem; flex-wrap:nowrap; overflow:hidden;">
         <span title="${c.category}" style="flex:1 1 0; min-width:0; font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.category}</span>
         <input type="number" class="cat-count-input" value="${c.count}" min="1"
                style="flex:0 0 60px; width:60px; padding:0.4rem; border:1.5px solid var(--border); border-radius:6px; text-align:center;" />
@@ -725,9 +734,9 @@ window.addCategoryRow = function(deptId, selectEl) {
   }
   
   const div = document.createElement('div');
-  div.className = 'form-group config-item';
+  div.className = 'config-item';
   div.dataset.cat = cat;
-  div.style.cssText = 'display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;';
+  div.style.cssText = 'display:flex; flex-direction:row; align-items:center; gap:0.4rem; margin-bottom:0.5rem; flex-wrap:nowrap; overflow:hidden;';
   
   div.innerHTML = `
     <span title="${cat}" style="flex:1 1 0; min-width:0; font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cat}</span>
