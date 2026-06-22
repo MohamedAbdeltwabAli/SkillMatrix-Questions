@@ -427,14 +427,18 @@ window.exportResultsPDF = async function() {
     ? notAssessed.map(e => `<tr><td>${e.name}</td><td style="font-family:'Inter',sans-serif;">${e.sap}</td></tr>`).join('')
     : '<tr><td colspan="2" style="text-align:center;color:#1a7a4a;">جميع الموظفين أجروا الاختبار ✅</td></tr>';
 
-  // ── Show the template off-screen to render charts ────────
+  // ── Show the template for rendering ───────────────────────
+  // Use a wrapper to render at exact width on-screen (off-screen breaks html2canvas)
   report.style.display = 'block';
-  report.style.position = 'absolute';
-  report.style.left = '-9999px';
+  report.style.position = 'fixed';
+  report.style.left = '0';
   report.style.top = '0';
+  report.style.zIndex = '-9999';
+  report.style.opacity = '0';
+  report.style.width = '1050px';
 
   // Small delay to let DOM paint
-  await new Promise(r => setTimeout(r, 100));
+  await new Promise(r => setTimeout(r, 200));
 
   // ── Destroy any old PDF charts ───────────────────────────
   const pdfChartIds = ['pdf-chart-passrate', 'pdf-chart-dist', 'pdf-chart-timeline', 'pdf-chart-cats'];
@@ -463,6 +467,7 @@ window.exportResultsPDF = async function() {
       plugins: {
         legend: { position: 'bottom', labels: { font: { size: 12, family: 'Tajawal' }, color: '#374151' } },
         datalabels: {
+          display: true,
           color: '#fff',
           font: { weight: 'bold', size: 16, family: 'Tajawal' },
           formatter: (val, ctx) => {
@@ -491,6 +496,7 @@ window.exportResultsPDF = async function() {
       plugins: {
         legend: { position: 'bottom', labels: { font: { size: 11, family: 'Tajawal' }, color: '#374151' } },
         datalabels: {
+          display: true,
           color: '#fff',
           font: { weight: 'bold', size: 14, family: 'Tajawal' },
           formatter: (val) => val > 0 ? val : ''
@@ -531,6 +537,7 @@ window.exportResultsPDF = async function() {
       plugins: {
         legend: { display: false },
         datalabels: {
+          display: true,
           ...dlDefaults,
           formatter: (val) => val
         }
@@ -544,47 +551,51 @@ window.exportResultsPDF = async function() {
   });
 
   // ── CHART 4: Category Bar Chart ──────────────────────────
-  new Chart(document.getElementById('pdf-chart-cats'), {
-    type: 'bar',
-    data: {
-      labels: catData.map(c => c.name),
-      datasets: [{
-        label: 'نسبة النجاح',
-        data: catData.map(c => c.rate),
-        backgroundColor: catData.map(c => c.rate < 50 ? '#c0392b' : c.rate < 70 ? '#e67e22' : '#1a7a4a'),
-        borderRadius: 6,
-        barThickness: 30,
-      }]
-    },
-    options: {
-      responsive: false, animation: false, indexAxis: 'y',
-      plugins: {
-        legend: { display: false },
-        datalabels: {
-          anchor: 'end', align: 'end',
-          color: '#1f2937',
-          font: { weight: 'bold', size: 12, family: 'Tajawal' },
-          formatter: (val) => val + '%'
+  if (catData.length) {
+    new Chart(document.getElementById('pdf-chart-cats'), {
+      type: 'bar',
+      data: {
+        labels: catData.map(c => c.name),
+        datasets: [{
+          label: 'نسبة النجاح',
+          data: catData.map(c => c.rate),
+          backgroundColor: catData.map(c => c.rate < 50 ? '#c0392b' : c.rate < 70 ? '#e67e22' : '#1a7a4a'),
+          borderRadius: 6,
+          barThickness: 30,
+        }]
+      },
+      options: {
+        responsive: false, animation: false, indexAxis: 'y',
+        plugins: {
+          legend: { display: false },
+          datalabels: {
+            display: true,
+            anchor: 'end', align: 'end',
+            color: '#1f2937',
+            font: { weight: 'bold', size: 12, family: 'Tajawal' },
+            formatter: (val) => val + '%'
+          }
+        },
+        scales: {
+          x: { min: 0, max: 100, ticks: { callback: v => v + '%', font: { size: 10 } } },
+          y: { ticks: { font: { size: 11, family: 'Tajawal' } } }
         }
       },
-      scales: {
-        x: { min: 0, max: 100, ticks: { callback: v => v + '%', font: { size: 10 } } },
-        y: { ticks: { font: { size: 11, family: 'Tajawal' } } }
-      }
-    },
-    plugins: [ChartDataLabels]
-  });
+      plugins: [ChartDataLabels]
+    });
+  }
 
-  // ── Wait for charts to render ────────────────────────────
-  await new Promise(r => setTimeout(r, 300));
+  // ── Wait for charts to fully render ──────────────────────
+  await new Promise(r => setTimeout(r, 500));
 
   // ── Generate PDF ─────────────────────────────────────────
   const opt = {
-    margin:      0,
+    margin:      [10, 10, 10, 10],
     filename:    `تقرير_أداء_${deptName}_${dateStamp()}.pdf`,
-    image:       { type: 'jpeg', quality: 1 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-    jsPDF:       { unit: 'px', format: [1050, 740], orientation: 'landscape' }
+    image:       { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', width: 1050 },
+    jsPDF:       { unit: 'mm', format: 'a4', orientation: 'landscape' },
+    pagebreak:   { mode: ['css'], avoid: ['.pdf-table', '.pdf-chart-box', '.pdf-chart-full'] }
   };
 
   try {
@@ -597,6 +608,9 @@ window.exportResultsPDF = async function() {
     report.style.display = 'none';
     report.style.position = '';
     report.style.left = '';
+    report.style.zIndex = '';
+    report.style.opacity = '';
+    report.style.width = '';
     // Destroy PDF charts to free memory
     pdfChartIds.forEach(id => {
       const c = Chart.getChart(id);
@@ -604,4 +618,5 @@ window.exportResultsPDF = async function() {
     });
   }
 };
+
 

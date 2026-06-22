@@ -42,6 +42,10 @@
 
       <div class="nav-section-label">التقارير</div>
 
+      <button class="nav-item" data-tab="reports" onclick="showTab('reports')">
+        <span class="nav-icon">📄</span>
+        <span class="nav-label">التقارير الشاملة</span>
+      </button>
       <button class="nav-item" data-tab="results" onclick="showTab('results')">
         <span class="nav-icon">📊</span>
         <span class="nav-label">النتائج</span>
@@ -264,6 +268,69 @@
       </div>
 
       <!-- ═══════════════════════════════════════════════ -->
+      <!-- TAB: REPORTS                                    -->
+      <!-- ═══════════════════════════════════════════════ -->
+      <div class="tab-panel" id="panel-reports">
+        <!-- KPI ROW (Reports specific) -->
+        <div class="kpi-grid" style="margin-bottom: 2rem;">
+          <div class="kpi-card">
+            <div class="kpi-icon" style="background:#e8f0ff;">👥</div>
+            <div class="kpi-info">
+              <div class="kpi-label">إجمالي الموظفين</div>
+              <div class="kpi-value" id="kpi-rep-total">—</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon" style="background:var(--success-light);">📝</div>
+            <div class="kpi-info">
+              <div class="kpi-label">أجروا الاختبار</div>
+              <div class="kpi-value" id="kpi-rep-tested">—</div>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon" style="background:var(--danger-light);">❌</div>
+            <div class="kpi-info">
+              <div class="kpi-label">لم يجروا الاختبار</div>
+              <div class="kpi-value" id="kpi-rep-missed">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-card">
+          <div class="section-card-header">
+            <span class="section-card-title">📄 التقارير الشاملة</span>
+            <div class="flex gap-1" style="flex-wrap:wrap;">
+              <select class="filter-select" id="rep-dept-filter" onchange="filterReports()">
+                <option value="">جميع الأقسام</option>
+              </select>
+              <select class="filter-select" id="rep-status-filter" onchange="filterReports()">
+                <option value="">حالة الاختبار (الجميع)</option>
+                <option value="tested">أجرى الاختبار</option>
+                <option value="missed">لم يجرِ الاختبار</option>
+              </select>
+              <select class="filter-select" id="rep-result-filter" onchange="filterReports()">
+                <option value="">النتيجة (الجميع)</option>
+                <option value="pass">ناجح</option>
+                <option value="fail">راسب</option>
+              </select>
+              <button class="btn btn-accent btn-sm" onclick="exportReports()">⬇ تصدير التقرير المفلتر</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>الاسم</th><th>SAP</th><th>القسم</th><th>حالة الاختبار</th>
+                  <th>المحاولة</th><th>الدرجة</th><th>النسبة</th><th>النتيجة</th>
+                </tr>
+              </thead>
+              <tbody id="rep-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════ -->
       <!-- TAB: RESULTS                                    -->
       <!-- ═══════════════════════════════════════════════ -->
       <div class="tab-panel" id="panel-results">
@@ -311,6 +378,11 @@
             <select class="filter-select" id="analysis-cat-filter" onchange="filterAnalysis()">
               <option value="">جميع الفئات</option>
             </select>
+            <select class="filter-select" id="analysis-correctness-filter" onchange="filterAnalysis()">
+              <option value="">الإجابة (الجميع)</option>
+              <option value="true">إجابة صحيحة</option>
+              <option value="false">إجابة خاطئة</option>
+            </select>
             <input type="date" id="analysis-date-from" class="filter-select" onchange="filterAnalysis()" />
             <input type="date" id="analysis-date-to"   class="filter-select" onchange="filterAnalysis()" />
             <button class="btn btn-ghost btn-sm" onclick="clearAnalysisFilters()">إلغاء الفلتر</button>
@@ -340,8 +412,8 @@
             <table>
               <thead>
                 <tr>
-                  <th>رقم</th><th>السؤال</th><th>الفئة</th><th>النوع</th>
-                  <th>المحاولات</th><th>صح</th><th>خطأ</th><th>نسبة النجاح</th><th>الإجراءات</th>
+                  <th>الاسم</th><th>القسم</th><th>السؤال</th><th>الفئة</th>
+                  <th>إجابة الموظف</th><th>النتيجة</th>
                 </tr>
               </thead>
               <tbody id="analysis-tbody"></tbody>
@@ -440,6 +512,18 @@
               <div class="form-group">
                 <label>مدة الاختبار (بالدقائق)</label>
                 <input type="number" id="exam-duration" min="1" max="180" value="30"
+                       style="width:100%;max-width:120px;padding:0.65rem 1rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.9rem;" />
+              </div>
+            </div>
+
+            <div class="card" style="padding:1.5rem;margin-bottom:1.5rem;">
+              <h3 style="font-size:1rem;font-weight:700;margin-bottom:0.35rem;">🎯 نسبة النجاح (Pass Threshold)</h3>
+              <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1.25rem;">
+                تحديد النسبة المئوية المطلوبة لاجتياز الاختبار بنجاح.
+              </p>
+              <div class="form-group">
+                <label>النسبة المئوية (%)</label>
+                <input type="number" id="pass-threshold" min="1" max="100" value="70"
                        style="width:100%;max-width:120px;padding:0.65rem 1rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:0.9rem;" />
               </div>
             </div>

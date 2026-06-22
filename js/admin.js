@@ -13,6 +13,7 @@ function showTab(tabId) {
     employees: 'إدارة الموظفين',
     questions:  'إدارة الأسئلة',
     depts:      'الأقسام والإعدادات',
+    reports:    'التقارير الشاملة',
     results:    'نتائج الاختبارات',
     analysis:   'تحليل الأسئلة',
     users:      'إدارة المستخدمين',
@@ -26,6 +27,7 @@ function showTab(tabId) {
     employees: loadEmployees,
     questions:  loadQuestions,
     depts:      loadDepts,
+    reports:    loadReports,
     results:    loadResults,
     analysis:   loadAnalysis,
     users:      loadUsers,
@@ -293,20 +295,35 @@ async function toggleExamPermission(id, currentExamAllowed) {
 async function bulkAllowExam() {
   const ids = [...document.querySelectorAll('.emp-check:checked')].map(cb => cb.dataset.id);
   if (!ids.length) return;
-  if (!await confirmDlg(`هل تريد السماح بدخول الاختبار لـ ${ids.length} موظف؟`)) return;
-  const { error } = await db.from('employees').update({ exam_allowed: true }).in('id', ids);
-  if (error) { toast(error.message, 'error'); return; }
-  toast(`تم السماح بدخول الاختبار لـ ${ids.length} موظف`, 'success');
+  if (!await confirmDlg(`هل تريد السماح بدخول الاختبار وتفعيل حسابات ${ids.length} موظف؟`)) return;
+  
+  let hasError = false;
+  // Use Promise.all with single updates to ensure compatibility and trigger RLS correctly
+  await Promise.all(ids.map(async (id) => {
+    const { error } = await db.from('employees').update({ exam_allowed: true, status: 1 }).eq('id', id);
+    if (error) hasError = true;
+  }));
+
+  if (hasError) { toast('حدث خطأ أثناء تحديث بعض الموظفين', 'error'); }
+  else { toast(`تم السماح بدخول الاختبار وتفعيل ${ids.length} موظف`, 'success'); }
+  
   loadEmployees();
 }
 
 async function bulkBlockExam() {
   const ids = [...document.querySelectorAll('.emp-check:checked')].map(cb => cb.dataset.id);
   if (!ids.length) return;
-  if (!await confirmDlg(`هل تريد إلغاء إذن الاختبار لـ ${ids.length} موظف؟`)) return;
-  const { error } = await db.from('employees').update({ exam_allowed: false }).in('id', ids);
-  if (error) { toast(error.message, 'error'); return; }
-  toast(`تم إلغاء إذن الاختبار لـ ${ids.length} موظف`, 'success');
+  if (!await confirmDlg(`هل تريد إلغاء إذن الاختبار وإيقاف حسابات ${ids.length} موظف؟`)) return;
+  
+  let hasError = false;
+  await Promise.all(ids.map(async (id) => {
+    const { error } = await db.from('employees').update({ exam_allowed: false, status: 0 }).eq('id', id);
+    if (error) hasError = true;
+  }));
+
+  if (hasError) { toast('حدث خطأ أثناء تحديث بعض الموظفين', 'error'); }
+  else { toast(`تم إلغاء إذن الاختبار وإيقاف ${ids.length} موظف`, 'success'); }
+  
   loadEmployees();
 }
 
@@ -1014,6 +1031,7 @@ async function loadAnalysis() {
 window.filterAnalysis = function() {
   const dept = $('analysis-dept-filter')?.value || '';
   const cat  = $('analysis-cat-filter')?.value || '';
+  const correctness = $('analysis-correctness-filter')?.value || '';
   const from = $('analysis-date-from')?.value;
   const to   = $('analysis-date-to')?.value;
 
@@ -1022,7 +1040,12 @@ window.filterAnalysis = function() {
     const mc = !cat  || r.category === cat;
     const mf = !from || new Date(r.submitted_at) >= new Date(from);
     const mt = !to   || new Date(r.submitted_at) <= new Date(to + 'T23:59:59');
-    return md && mc && mf && mt;
+    
+    let mCorr = true;
+    if (correctness === 'true') mCorr = (String(r.is_correct) === 'true' || r.is_correct === true);
+    if (correctness === 'false') mCorr = (String(r.is_correct) === 'false' || r.is_correct === false);
+
+    return md && mc && mf && mt && mCorr;
   });
 
   renderAnalysis(filtered);
@@ -1031,6 +1054,7 @@ window.filterAnalysis = function() {
 window.clearAnalysisFilters = function() {
   if ($('analysis-dept-filter')) $('analysis-dept-filter').value = '';
   if ($('analysis-cat-filter')) $('analysis-cat-filter').value = '';
+  if ($('analysis-correctness-filter')) $('analysis-correctness-filter').value = '';
   if ($('analysis-date-from')) $('analysis-date-from').value = '';
   if ($('analysis-date-to')) $('analysis-date-to').value = '';
   window.filterAnalysis();
@@ -1089,29 +1113,22 @@ function renderAnalysis(responses) {
     .map(d => ({ name: d.dept, rate: Math.round((d.correct / d.attempts) * 100) }))
     .sort((a, b) => b.rate - a.rate);
 
-  tbody.innerHTML = analysisData.map(q => {
-    const rateClass = q.success_rate < 50 ? 'rate-row-red' : q.success_rate < 70 ? 'rate-row-orange' : 'rate-row-green';
-    const barClass  = q.success_rate < 50 ? 'low' : q.success_rate < 70 ? 'mid' : '';
+  // Show first 1000 items so the browser doesn't freeze
+  tbody.innerHTML = filtered.slice(0, 1000).map(r => {
+    const emp = allEmployees.find(e => e.sap === r.sap);
+    const empName = emp ? emp.name : '—';
+    const isCorrect = String(r.is_correct) === 'true' || r.is_correct === true;
+    const badgeClass = isCorrect ? 'badge-success' : 'badge-danger';
+    const badgeText = isCorrect ? 'صحيحة' : 'خاطئة';
+    
     return `
-      <tr class="${rateClass}">
-        <td class="en">${q.q_id}</td>
-        <td style="text-align:right;max-width:220px;font-size:0.85rem;">${q.question}</td>
-        <td>${q.category}</td>
-        <td>${q.type === 'mcq' ? 'MCQ' : 'صح/خطأ'}</td>
-        <td class="en">${q.attempts}</td>
-        <td class="en" style="color:var(--success);">${q.correct}</td>
-        <td class="en" style="color:var(--danger);">${q.wrong}</td>
-        <td>
-          <div class="flex items-center gap-1" style="justify-content:center;">
-            <span class="en" style="font-weight:700;min-width:36px;">${q.success_rate}%</span>
-            <div class="rate-bar">
-              <div class="rate-bar-fill ${barClass}" style="width:${q.success_rate}%;"></div>
-            </div>
-          </div>
-        </td>
-        <td>
-          <button class="btn btn-ghost btn-sm" onclick="viewQuestionAttempts(${q.q_id})">التفاصيل</button>
-        </td>
+      <tr>
+        <td>${empName}</td>
+        <td>${r.department_name}</td>
+        <td style="text-align:right;max-width:220px;font-size:0.85rem;">${r.question_text || r.q_id}</td>
+        <td>${r.category}</td>
+        <td style="font-size:0.85rem;max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${r.employee_answer}">${r.employee_answer}</td>
+        <td><span class="badge ${badgeClass}">${badgeText}</span></td>
       </tr>
     `;
   }).join('');
@@ -1547,12 +1564,16 @@ async function loadSettings() {
 
   const durationEl = $('exam-duration');
   if (durationEl && map.exam_duration) durationEl.value = map.exam_duration;
+
+  const thresholdEl = $('pass-threshold');
+  if (thresholdEl && map.pass_threshold) thresholdEl.value = map.pass_threshold;
 }
 
 async function saveSettings() {
   const mode = $('device-check-mode')?.value;
   const duration = $('exam-duration')?.value;
-  if (!mode || !duration) {
+  const threshold = $('pass-threshold')?.value;
+  if (!mode || !duration || !threshold) {
     toast('يرجى ملء جميع الحقول المطلوبة', 'error'); return;
   }
 
@@ -1566,11 +1587,159 @@ async function saveSettings() {
     { onConflict: 'key' }
   );
 
-  if (err1 || err2) {
-    toast((err1 || err2).message, 'error'); return;
+  const { error: err3 } = await db.from('settings').upsert(
+    { key: 'pass_threshold', value: threshold, updated_at: new Date().toISOString() },
+    { onConflict: 'key' }
+  );
+
+  if (err1 || err2 || err3) {
+    toast((err1 || err2 || err3).message, 'error'); return;
   }
   toast('تم حفظ الإعدادات بنجاح', 'success');
 }
+
+}
+
+// ────────────────────────────────────────────────────────────
+// ── REPORTS TAB LOGIC ───────────────────────────────────────
+let allReportsData = [];
+
+async function loadReports() {
+  const tbody = $('rep-tbody');
+  if (tbody) tbody.innerHTML = skeletonRows(8);
+
+  // Get all active employees
+  const { data: emps, error: errEmps } = await db.from('employees').select('sap, name, department_id, departments(name)');
+  
+  // Get all latest results per employee (using our existing logic or grabbing all and grouping)
+  const { data: res, error: errRes } = await db.from('results').select('*');
+
+  if (errEmps || errRes) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8">حدث خطأ أثناء تحميل البيانات</td></tr>`;
+    return;
+  }
+
+  // Find the latest result for each sap
+  const latestResults = {};
+  (res || []).forEach(r => {
+    if (!latestResults[r.sap] || new Date(r.submitted_at) > new Date(latestResults[r.sap].submitted_at)) {
+      latestResults[r.sap] = r;
+    }
+  });
+
+  allReportsData = (emps || []).map(emp => {
+    const r = latestResults[emp.sap];
+    return {
+      sap: emp.sap,
+      name: emp.name,
+      department_name: emp.departments?.name || 'غير محدد',
+      has_tested: !!r,
+      attempt: r ? r.attempt : 0,
+      score: r ? r.score : 0,
+      percent: r ? r.percent : 0,
+      passed: r ? r.passed : false
+    };
+  });
+
+  // Populate department filter
+  const depts = [...new Set(allReportsData.map(d => d.department_name))].sort();
+  const deptFilter = $('rep-dept-filter');
+  if (deptFilter) {
+    const current = deptFilter.value;
+    deptFilter.innerHTML = `<option value="">جميع الأقسام</option>` + depts.map(d => `<option value="${d}" ${d === current ? 'selected' : ''}>${d}</option>`).join('');
+  }
+
+  window.filterReports();
+}
+
+window.filterReports = function() {
+  const dept = $('rep-dept-filter')?.value || '';
+  const status = $('rep-status-filter')?.value || '';
+  const result = $('rep-result-filter')?.value || '';
+
+  const filtered = allReportsData.filter(d => {
+    const md = !dept || d.department_name === dept;
+    let ms = true;
+    if (status === 'tested') ms = d.has_tested;
+    if (status === 'missed') ms = !d.has_tested;
+
+    let mr = true;
+    if (result === 'pass') mr = d.has_tested && d.passed;
+    if (result === 'fail') mr = d.has_tested && !d.passed;
+
+    return md && ms && mr;
+  });
+
+  // Update KPIs
+  if ($('kpi-rep-total')) $('kpi-rep-total').textContent = filtered.length;
+  if ($('kpi-rep-tested')) $('kpi-rep-tested').textContent = filtered.filter(d => d.has_tested).length;
+  if ($('kpi-rep-missed')) $('kpi-rep-missed').textContent = filtered.filter(d => !d.has_tested).length;
+
+  const tbody = $('rep-tbody');
+  if (!tbody) return;
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📄</div><p>لا توجد بيانات مطابقة للبحث</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(d => {
+    const statusBadge = d.has_tested ? '<span class="badge badge-success">أجرى الاختبار</span>' : '<span class="badge badge-warning">لم يجرِ الاختبار</span>';
+    const resultBadge = !d.has_tested ? '—' : d.passed ? '<span class="badge badge-success">ناجح</span>' : '<span class="badge badge-danger">راسب</span>';
+    return `
+      <tr>
+        <td>${d.name}</td>
+        <td class="en">${d.sap}</td>
+        <td>${d.department_name}</td>
+        <td>${statusBadge}</td>
+        <td class="en">${d.has_tested ? d.attempt : '—'}</td>
+        <td class="en">${d.has_tested ? d.score : '—'}</td>
+        <td class="en">${d.has_tested ? d.percent + '%' : '—'}</td>
+        <td>${resultBadge}</td>
+      </tr>
+    `;
+  }).join('');
+};
+
+window.exportReports = function() {
+  const dept = $('rep-dept-filter')?.value || '';
+  const status = $('rep-status-filter')?.value || '';
+  const result = $('rep-result-filter')?.value || '';
+
+  const filtered = allReportsData.filter(d => {
+    const md = !dept || d.department_name === dept;
+    let ms = true;
+    if (status === 'tested') ms = d.has_tested;
+    if (status === 'missed') ms = !d.has_tested;
+
+    let mr = true;
+    if (result === 'pass') mr = d.has_tested && d.passed;
+    if (result === 'fail') mr = d.has_tested && !d.passed;
+
+    return md && ms && mr;
+  });
+
+  if (!filtered.length) {
+    toast('لا توجد بيانات لتصديرها', 'warning');
+    return;
+  }
+
+  const exportData = filtered.map(d => ({
+    'الاسم': d.name,
+    'SAP': d.sap,
+    'القسم': d.department_name,
+    'حالة الاختبار': d.has_tested ? 'أجرى الاختبار' : 'لم يجرِ الاختبار',
+    'المحاولة': d.has_tested ? d.attempt : '',
+    'الدرجة': d.has_tested ? d.score : '',
+    'النسبة المئوية (%)': d.has_tested ? d.percent : '',
+    'النتيجة النهائية': !d.has_tested ? '' : d.passed ? 'ناجح' : 'راسب'
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(exportData);
+  XLSX.utils.book_append_sheet(wb, ws, "Reports");
+  XLSX.writeFile(wb, `SkillMatrix_Reports_${new Date().toISOString().slice(0,10)}.xlsx`);
+};
 
 // ────────────────────────────────────────────────────────────
 // ── INIT ────────────────────────────────────────────────────

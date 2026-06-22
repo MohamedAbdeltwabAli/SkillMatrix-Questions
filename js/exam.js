@@ -14,8 +14,7 @@ const state = {
   submitted: false,
 };
 
-const PASS_THRESHOLD = 70;
-
+// (PASS_THRESHOLD is now dynamically loaded from DB into state.passThreshold)
 // ── DOM REFS ─────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 
@@ -155,6 +154,7 @@ async function startExam() {
   const durationMinutes = parseInt(settingsMap.exam_duration) || 30;
   state.totalDuration = durationMinutes * 60;
   state.timeLeft = state.totalDuration;
+  state.passThreshold = parseInt(settingsMap.pass_threshold) || 70;
 
   const deviceCheck = await checkDevice(state.deviceHash, sap, state.deviceMode);
   if (!deviceCheck.allowed) {
@@ -457,7 +457,7 @@ async function scoreLocally(responses) {
 
   const total   = state.questions.length;
   const percent = Math.round((score / total) * 100);
-  const passed  = percent >= PASS_THRESHOLD;
+  const passed  = percent >= (state.passThreshold || 70);
 
   // Save result
   const { data: savedResult } = await db.from('results').insert({
