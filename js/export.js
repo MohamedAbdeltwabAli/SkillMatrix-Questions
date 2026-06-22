@@ -304,11 +304,11 @@ window.exportResultsPDF = async function() {
   }
 
   const opt = {
-    margin:       0.3,
+    margin:       0.2,
     filename:     `نتائج_الاختبار_${dateStamp()}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2 },
-    jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+    image:        { type: 'jpeg', quality: 1 },
+    html2canvas:  { scale: 3, useCORS: true, backgroundColor: '#ffffff' },
+    jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
   };
   
   // Hide all buttons inside the panel before capturing
