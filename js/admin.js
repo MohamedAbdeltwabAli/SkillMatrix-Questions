@@ -1274,8 +1274,21 @@ async function loadUsers() {
   if (!tbody) return;
   tbody.innerHTML = skeletonRows(5);
 
-  const { data } = await db.from('users').select('*').order('created_at');
+  const { data, error } = await db.from('users').select('*').order('created_at');
+  
+  if (error) {
+    console.error("Error loading users:", error);
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger" style="color:red;padding:2rem;">خطأ في جلب بيانات المستخدمين: ${error.message}</td></tr>`;
+    return;
+  }
+  
   allUsers = data || [];
+  
+  if (allUsers.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted" style="padding:2rem;">لا يوجد مستخدمون لعرضهم</td></tr>`;
+    return;
+  }
+  
   renderUsers(allUsers);
 }
 
