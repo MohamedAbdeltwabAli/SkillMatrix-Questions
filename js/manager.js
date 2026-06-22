@@ -298,8 +298,10 @@ async function loadAnalysis() {
 
   const { data: responses } = await db
     .from('responses')
-    .select('q_id, question_text, category, type, is_correct, department_name')
+    .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number)')
     .eq('department_name', myDept);
+
+  window.allAnalysisResponses = responses || [];
 
   if (!responses?.length) {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
@@ -323,6 +325,30 @@ async function loadAnalysis() {
   renderAnalysisTable(analysisData);
   renderAnalysisBarChart(analysisData.slice(0, 10));
 }
+
+window.exportAnalysisReport = function() {
+  const responses = window.allAnalysisResponses || [];
+  const detailedAttempts = responses.map(r => {
+    const emp = allEmployees.find(e => e.sap === r.sap);
+    const empName = emp ? emp.name : '—';
+    return {
+      sap: r.sap,
+      name: empName,
+      dept: r.department_name,
+      q_id: r.q_id,
+      question: r.question_text,
+      category: r.category,
+      type: r.type === 'mcq' ? 'MCQ' : 'صح/خطأ',
+      emp_ans: r.employee_answer,
+      correct_ans: r.correct_answer,
+      result: r.is_correct ? 'صح ✓' : 'خطأ ✗',
+      date: new Date(r.submitted_at).toLocaleDateString('ar-EG'),
+      attempt: r.results?.attempt_number || 1,
+    };
+  });
+
+  exportQuestionAnalysis(analysisData, detailedAttempts);
+};
 
 function renderAnalysisTable(list) {
   const tbody = $('analysis-tbody');

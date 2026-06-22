@@ -292,3 +292,43 @@ async function parseUploadedFile(file, expectedColumns) {
 function dateStamp() {
   return new Date().toISOString().split('T')[0];
 }
+
+/**
+ * Export results panel to PDF using html2pdf.js
+ */
+window.exportResultsPDF = async function() {
+  const element = document.getElementById('panel-results');
+  if (!element) {
+    alert('عذراً، لا يمكن تصدير هذه الصفحة.');
+    return;
+  }
+
+  const opt = {
+    margin:       0.3,
+    filename:     `نتائج_الاختبار_${dateStamp()}.pdf`,
+    image:        { type: 'jpeg', quality: 0.98 },
+    html2canvas:  { scale: 2 },
+    jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+  };
+  
+  // Hide all buttons inside the panel before capturing
+  const btns = element.querySelectorAll('button');
+  const originalDisplays = [];
+  btns.forEach(b => {
+    originalDisplays.push(b.style.display);
+    b.style.display = 'none';
+  });
+  
+  try {
+    // We assume html2pdf is loaded globally
+    await window.html2pdf().set(opt).from(element).save();
+  } catch (err) {
+    console.error("PDF Export error:", err);
+    alert('حدث خطأ أثناء تصدير الـ PDF');
+  } finally {
+    // Restore buttons
+    btns.forEach((b, i) => {
+      b.style.display = originalDisplays[i];
+    });
+  }
+};

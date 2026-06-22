@@ -1330,7 +1330,7 @@ window.toggleUserDept = function() {
   }
 };
 
-function newUser() {
+async function newUser() {
   $('user-modal-title').textContent = 'إضافة مستخدم جديد';
   $('user-form').reset();
   $('user-form-id').value = '';
@@ -1338,7 +1338,11 @@ function newUser() {
   $('user-pass-hint').style.display = 'none';
 
   const deptSelect = $('user-form-dept');
-  if (deptSelect && window.allDepts) {
+  if (deptSelect) {
+    if (!window.allDepts || window.allDepts.length === 0) {
+      const { data } = await db.from('departments').select('name').order('name');
+      window.allDepts = data || [];
+    }
     deptSelect.innerHTML = `<option value="">-- اختر القسم --</option>` + window.allDepts.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
   }
   toggleUserDept();
@@ -1346,7 +1350,7 @@ function newUser() {
   openModal('user-modal');
 }
 
-function editUser(id) {
+async function editUser(id) {
   const u = allUsers.find(u => u.id === id);
   if (!u) return;
   $('user-modal-title').textContent = 'تعديل بيانات المستخدم';
@@ -1359,7 +1363,11 @@ function editUser(id) {
   $('user-pass-hint').style.display = 'block';
 
   const deptSelect = $('user-form-dept');
-  if (deptSelect && window.allDepts) {
+  if (deptSelect) {
+    if (!window.allDepts || window.allDepts.length === 0) {
+      const { data } = await db.from('departments').select('name').order('name');
+      window.allDepts = data || [];
+    }
     deptSelect.innerHTML = `<option value="">-- اختر القسم --</option>` + window.allDepts.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
     deptSelect.value = u.department || '';
   }
