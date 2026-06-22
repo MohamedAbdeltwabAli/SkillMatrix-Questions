@@ -1,5 +1,8 @@
 // js/manager.js — Manager dashboard (read-only, 4 tabs)
 
+// Disable datalabels globally — only PDF export charts enable it explicitly
+Chart.defaults.plugins.datalabels = { display: false };
+
 const $ = id => document.getElementById(id);
 
 let allResults = [];
