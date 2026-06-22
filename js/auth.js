@@ -11,7 +11,7 @@ async function getCurrentUser() {
 
   const { data: userRow } = await db
     .from('users')
-    .select('id, email, role, name')
+    .select('id, email, role, name, department')
     .eq('id', session.user.id)
     .single();
 
@@ -43,7 +43,7 @@ async function login(email, password) {
 
   const { data: userRow, error: profileErr } = await db
     .from('users')
-    .select('id, email, role, name')
+    .select('id, email, role, name, department')
     .eq('id', data.user.id)
     .single();
 

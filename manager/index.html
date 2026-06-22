@@ -132,11 +132,8 @@
         <!-- Filter + Table -->
         <div class="section-card">
           <div class="section-card-header">
-            <span class="section-card-title">📋 جدول النتائج التفصيلي</span>
+            <span class="section-card-title">📊 نتائج الاختبارات <span id="mgr-res-dept" style="color:var(--primary); font-size: 0.9rem;"></span></span>
             <div class="flex gap-1" style="flex-wrap:wrap;">
-              <select class="filter-select" id="res-dept-filter" onchange="filterResults()">
-                <option value="">جميع الأقسام</option>
-              </select>
               <select class="filter-select" id="res-pass-filter" onchange="filterResults()">
                 <option value="">الجميع</option>
                 <option value="true">ناجح</option>
@@ -145,6 +142,7 @@
               <input type="date" id="res-date-from" class="filter-select" onchange="filterResults()" />
               <input type="date" id="res-date-to"   class="filter-select" onchange="filterResults()" />
               <button class="btn btn-accent btn-sm" onclick="exportResults(allResults)">⬇ تصدير Excel</button>
+              <button class="btn btn-danger btn-sm" onclick="exportResultsPDF()" style="background:#e74c3c;color:#fff;">📄 تصدير PDF</button>
             </div>
           </div>
           <div class="table-wrap">
@@ -171,11 +169,8 @@
 
         <div class="section-card">
           <div class="section-card-header">
-            <span class="section-card-title">⏳ الموظفون الذين لم يؤدوا الاختبار</span>
+            <span class="section-card-title">⏳ الموظفون الذين لم يؤدوا الاختبار <span id="mgr-not-dept" style="color:var(--primary); font-size: 0.9rem;"></span></span>
             <div class="flex gap-1" style="flex-wrap:wrap;">
-              <select class="filter-select" id="not-dept-filter" onchange="filterNotAssessed()">
-                <option value="">جميع الأقسام</option>
-              </select>
               <button class="btn btn-accent btn-sm"
                 onclick="exportNotAssessed(window._notAssessed||[],'الكل')">⬇ تصدير Excel</button>
             </div>
@@ -226,11 +221,8 @@
       <div class="tab-panel" id="panel-deptreport">
 
         <div class="dept-report-selector">
-          <label>اختر القسم:</label>
-          <select class="filter-select" id="dept-report-sel" style="min-width:180px;">
-            <option value="">— اختر —</option>
-          </select>
-          <button class="btn btn-primary" onclick="loadDeptReportData()">عرض التقرير</button>
+          <label>تقارير القسم: <strong id="mgr-report-dept"></strong></label>
+          <button class="btn btn-primary" onclick="loadDeptReportData()">تحديث التقرير</button>
           <button class="btn btn-accent btn-sm"
             onclick="window._deptReportResults && exportResults(window._deptReportResults.results, window._deptReportResults.deptName)">
             ⬇ تصدير Excel

@@ -16,6 +16,7 @@ function showTab(tabId) {
     results:    'نتائج الاختبارات',
     analysis:   'تحليل الأسئلة',
     users:      'إدارة المستخدمين',
+    activity:   'سجل النشاطات',
     settings:   'إعدادات النظام',
   };
   $('page-title').textContent = titles[tabId] || '';
@@ -28,6 +29,7 @@ function showTab(tabId) {
     results:    loadResults,
     analysis:   loadAnalysis,
     users:      loadUsers,
+    activity:   loadActivityLogs,
     settings:   loadSettings,
   };
   loaders[tabId]?.();
@@ -1301,12 +1303,33 @@ function renderUsers(list) {
   `).join('');
 }
 
+window.toggleUserDept = function() {
+  const role = $('user-form-role').value;
+  const group = $('user-dept-group');
+  const deptSelect = $('user-form-dept');
+  if (!group || !deptSelect) return;
+  if (role === 'manager') {
+    group.style.display = 'block';
+    deptSelect.required = true;
+  } else {
+    group.style.display = 'none';
+    deptSelect.required = false;
+  }
+};
+
 function newUser() {
   $('user-modal-title').textContent = 'إضافة مستخدم جديد';
   $('user-form').reset();
   $('user-form-id').value = '';
   $('user-form-pass').required = true;
   $('user-pass-hint').style.display = 'none';
+
+  const deptSelect = $('user-form-dept');
+  if (deptSelect && window.allDepts) {
+    deptSelect.innerHTML = `<option value="">-- اختر القسم --</option>` + window.allDepts.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+  }
+  toggleUserDept();
+
   openModal('user-modal');
 }
 
@@ -1321,6 +1344,14 @@ function editUser(id) {
   $('user-form-pass').value  = '';
   $('user-form-pass').required = false;
   $('user-pass-hint').style.display = 'block';
+
+  const deptSelect = $('user-form-dept');
+  if (deptSelect && window.allDepts) {
+    deptSelect.innerHTML = `<option value="">-- اختر القسم --</option>` + window.allDepts.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+    deptSelect.value = u.department || '';
+  }
+  toggleUserDept();
+
   openModal('user-modal');
 }
 
@@ -1330,9 +1361,18 @@ async function saveUser() {
   const email = $('user-form-email').value.trim();
   const role  = $('user-form-role').value;
   const pass  = $('user-form-pass').value;
+  const department = role === 'manager' ? $('user-form-dept').value : null;
 
-  if (!name || !email || !role) {
+  if (!name || !email || !role || (role === 'manager' && !department)) {
     toast('يرجى ملء جميع الحقول المطلوبة', 'error'); return;
+  }
+
+  // Enforce one manager per department
+  if (role === 'manager') {
+    const existingManager = allUsers.find(u => u.role === 'manager' && u.department === department && u.id !== id);
+    if (existingManager) {
+      toast('هذا القسم لديه مدير مسجل مسبقاً', 'error'); return;
+    }
   }
 
   if (!id) {
@@ -1363,6 +1403,7 @@ async function saveUser() {
       email,
       role,
       name,
+      department,
     });
 
     if (insertErr) { toast(insertErr.message, 'error'); return; }
@@ -1374,7 +1415,7 @@ async function saveUser() {
   }
 
   // Update existing user profile
-  const { error } = await db.from('users').update({ name, role }).eq('id', id);
+  const { error } = await db.from('users').update({ name, role, department }).eq('id', id);
   if (error) { toast(error.message, 'error'); return; }
 
   // Update Auth password if a new one was entered
@@ -1399,6 +1440,47 @@ async function deleteUser(id) {
   if (error) { toast(error.message, 'error'); return; }
   toast('تم حذف المستخدم', 'success');
   loadUsers();
+}
+
+// ────────────────────────────────────────────────────────────
+// TAB: ACTIVITY LOGS
+// ────────────────────────────────────────────────────────────
+async function loadActivityLogs() {
+  const tbody = $('activity-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = skeletonRows(6);
+
+  const { data, error } = await db
+    .from('activity_logs')
+    .select('*')
+    .order('session_start', { ascending: false })
+    .limit(50);
+
+  if (error || !data || !data.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">لا توجد سجلات نشاط مسجلة حالياً</td></tr>`;
+    return;
+  }
+
+  function formatDuration(start, end) {
+    const s = new Date(start).getTime();
+    const e = new Date(end).getTime();
+    const diff = Math.max(0, Math.floor((e - s) / 1000));
+    const mins = Math.floor(diff / 60);
+    const secs = diff % 60;
+    if (mins > 0) return `${mins} دقيقة و ${secs} ثانية`;
+    return `${secs} ثانية`;
+  }
+
+  tbody.innerHTML = data.map(log => `
+    <tr>
+      <td style="font-weight:600;">${log.user_name || '—'}</td>
+      <td><span class="badge ${log.role === 'admin' ? 'badge-warning' : 'badge-info'}">${log.role === 'admin' ? 'مسؤول' : 'مدير'}</span></td>
+      <td class="en" style="font-size:0.85rem;">${new Date(log.session_start).toLocaleString('ar-EG')}</td>
+      <td class="en" style="font-size:0.85rem;">${new Date(log.last_active).toLocaleString('ar-EG')}</td>
+      <td class="en" style="font-weight:700;">${log.click_count || 0}</td>
+      <td class="en">${formatDuration(log.session_start, log.last_active)}</td>
+    </tr>
+  `).join('');
 }
 
 // ── HELPERS ────────────────────────────────────────────────

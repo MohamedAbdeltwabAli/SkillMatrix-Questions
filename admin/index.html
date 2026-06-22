@@ -57,6 +57,10 @@
         <span class="nav-icon">🔐</span>
         <span class="nav-label">المستخدمون</span>
       </button>
+      <button class="nav-item" data-tab="activity" onclick="showTab('activity')">
+        <span class="nav-icon">🕵️</span>
+        <span class="nav-label">سجل النشاطات</span>
+      </button>
       <button class="nav-item" data-tab="settings" onclick="showTab('settings')">
         <span class="nav-icon">⚙️</span>
         <span class="nav-label">الإعدادات</span>
@@ -370,6 +374,33 @@
       </div>
 
       <!-- ═══════════════════════════════════════════════ -->
+      <!-- TAB: ACTIVITY LOGS                              -->
+      <!-- ═══════════════════════════════════════════════ -->
+      <div class="tab-panel" id="panel-activity">
+        <div class="section-card">
+          <div class="section-card-header">
+            <span class="section-card-title">🕵️ سجل النشاطات (للمديرين)</span>
+            <button class="btn btn-ghost btn-sm" onclick="loadActivityLogs()">🔄 تحديث القائمة</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>اسم المدير</th>
+                  <th>دور المستخدم</th>
+                  <th>وقت الدخول</th>
+                  <th>آخر نشاط</th>
+                  <th>عدد النقرات</th>
+                  <th>مدة الجلسة</th>
+                </tr>
+              </thead>
+              <tbody id="activity-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════ -->
       <!-- TAB: SETTINGS                                    -->
       <!-- ═══════════════════════════════════════════════ -->
       <div class="tab-panel" id="panel-settings">
@@ -532,10 +563,14 @@
       </div>
       <div class="form-group">
         <label>الدور</label>
-        <select id="user-form-role">
+        <select id="user-form-role" onchange="toggleUserDept()">
           <option value="manager">مدير</option>
           <option value="admin">مسؤول</option>
         </select>
+      </div>
+      <div class="form-group" id="user-dept-group">
+        <label>القسم المخصص للمدير</label>
+        <select id="user-form-dept" required></select>
       </div>
       <div class="form-group">
         <label>كلمة المرور</label>

@@ -65,23 +65,22 @@ function countUp(el, target, suffix = '') {
 // ────────────────────────────────────────────────────────────
 let chartBar, chartLine, chartDonut;
 
+let managerUser = null;
+
 async function loadResults() {
-  const [{ data: results }, { data: emps }, { data: depts }] = await Promise.all([
-    db.from('results').select('*').order('submitted_at', { ascending: false }),
+  if (!managerUser) managerUser = await window.getCurrentUser();
+  const myDept = managerUser?.department || '';
+
+  if ($('mgr-res-dept')) $('mgr-res-dept').textContent = myDept ? `(${myDept})` : '';
+
+  const [{ data: results }, { data: emps }] = await Promise.all([
+    db.from('results').select('*').eq('department_name', myDept).order('submitted_at', { ascending: false }),
     db.from('employees').select('id, sap, name, department_id, departments(name)'),
-    db.from('departments').select('id, name').order('name'),
   ]);
 
   allResults   = results   || [];
-  allEmployees = emps      || [];
-  allDepts     = depts     || [];
-
-  // Populate dept filter
-  const deptFilter = $('res-dept-filter');
-  if (deptFilter) {
-    deptFilter.innerHTML = `<option value="">جميع الأقسام</option>` +
-      depts?.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
-  }
+  allEmployees = (emps || []).filter(e => e.departments?.name === myDept);
+  allDepts     = [{ name: myDept }];
 
   renderResultsDashboard(allResults, allEmployees);
 }
@@ -111,11 +110,10 @@ function filterResults() {
   const to     = $('res-date-to')?.value;
 
   const filtered = allResults.filter(r => {
-    const md = !dept   || r.department_name === dept;
     const mp = !passed || String(r.passed) === passed;
     const mf = !from   || new Date(r.submitted_at) >= new Date(from);
     const mt = !to     || new Date(r.submitted_at) <= new Date(to + 'T23:59:59');
-    return md && mp && mf && mt;
+    return mp && mf && mt;
   });
 
   renderResultsTable(filtered);
@@ -239,31 +237,25 @@ async function loadNotAssessed() {
   if (!tbody) return;
   tbody.innerHTML = skeletonRows(3);
 
+  if (!managerUser) managerUser = await window.getCurrentUser();
+  const myDept = managerUser?.department || '';
+  if ($('mgr-not-dept')) $('mgr-not-dept').textContent = myDept ? `(${myDept})` : '';
+
   if (!allEmployees.length) {
-    const [{ data: emps }, { data: results }, { data: depts }] = await Promise.all([
-      db.from('employees').select('id, sap, name, department_id, departments(name)'),
-      db.from('results').select('sap'),
-      db.from('departments').select('id, name').order('name'),
+    const [{ data: emps }, { data: results }] = await Promise.all([
+      db.from('employees').select('id, sap, name, department_id, departments!inner(name)').eq('departments.name', myDept),
+      db.from('results').select('sap').eq('department_name', myDept),
     ]);
     allEmployees = emps     || [];
     allResults   = (results || []).map(r => r.sap);
-    allDepts     = depts    || [];
   }
 
-  // Normalize to SAP strings regardless of whether allResults holds objects or strings
   const assessedSaps = new Set(
     allResults.map(r => (typeof r === 'string' ? r : r.sap))
   );
   const notAssessed = allEmployees.filter(e => !assessedSaps.has(e.sap)).map(e => ({
-    sap: e.sap, name: e.name, dept_name: e.departments?.name || '—',
+    sap: e.sap, name: e.name, dept_name: e.departments?.name || myDept || '—',
   }));
-
-  // Dept filter
-  const deptFilter = $('not-dept-filter');
-  if (deptFilter) {
-    deptFilter.innerHTML = `<option value="">جميع الأقسام</option>` +
-      allDepts.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
-  }
 
   renderNotAssessed(notAssessed);
   window._notAssessed = notAssessed;
@@ -285,8 +277,8 @@ function renderNotAssessed(list) {
 }
 
 function filterNotAssessed() {
-  const dept = $('not-dept-filter')?.value || '';
-  const list = (window._notAssessed || []).filter(e => !dept || e.dept_name === dept);
+  // Filters removed for manager, just render the list
+  const list = window._notAssessed || [];
   renderNotAssessed(list);
 }
 
@@ -301,9 +293,13 @@ async function loadAnalysis() {
   if (!tbody) return;
   tbody.innerHTML = skeletonRows(8);
 
+  if (!managerUser) managerUser = await window.getCurrentUser();
+  const myDept = managerUser?.department || '';
+
   const { data: responses } = await db
     .from('responses')
-    .select('q_id, question_text, category, type, is_correct, department_name');
+    .select('q_id, question_text, category, type, is_correct, department_name')
+    .eq('department_name', myDept);
 
   if (!responses?.length) {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
@@ -384,20 +380,16 @@ function renderAnalysisBarChart(qs) {
 let deptReportChart1, deptReportChart2;
 
 async function loadDeptReport() {
-  if (!allDepts.length) {
-    const { data } = await db.from('departments').select('id, name').order('name');
-    allDepts = data || [];
-  }
+  if (!managerUser) managerUser = await window.getCurrentUser();
+  const myDept = managerUser?.department || '';
 
-  const sel = $('dept-report-sel');
-  if (sel) {
-    sel.innerHTML = `<option value="">اختر القسم</option>` +
-      allDepts.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
-  }
+  if ($('mgr-report-dept')) $('mgr-report-dept').textContent = myDept;
+  loadDeptReportData();
 }
 
 async function loadDeptReportData() {
-  const dept = $('dept-report-sel')?.value;
+  if (!managerUser) managerUser = await window.getCurrentUser();
+  const dept = managerUser?.department || '';
   if (!dept) return;
 
   const { data: results } = await db
@@ -449,9 +441,40 @@ async function loadDeptReportData() {
 }
 
 // ── INIT ──────────────────────────────────────────────────
+let activityLogId = null;
+let sessionClicks = 0;
+
 (async () => {
   const user = await requireRole(['admin', 'manager']);
   if (!user) return;
+
+  managerUser = user;
+
+  // Track clicks
+  document.addEventListener('click', () => { sessionClicks++; });
+
+  // Init activity log for managers
+  if (user.role === 'manager') {
+    const { data: logData } = await db.from('activity_logs').insert({
+      user_id: user.id,
+      user_name: user.name,
+      role: user.role,
+      session_start: new Date().toISOString(),
+      last_active: new Date().toISOString(),
+      click_count: 0
+    }).select('id').single();
+    
+    if (logData) {
+      activityLogId = logData.id;
+      // Heartbeat every 15s
+      setInterval(async () => {
+        await db.from('activity_logs').update({
+          last_active: new Date().toISOString(),
+          click_count: sessionClicks
+        }).eq('id', activityLogId);
+      }, 15000);
+    }
+  }
 
   await renderUserHeader('#user-name', '#user-role');
   showTab('results');
