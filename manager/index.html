@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../css/manager.css?v=2.3" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 <body>
@@ -279,6 +280,132 @@
 
     </div><!-- /content -->
   </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- HIDDEN PDF REPORT TEMPLATE                              -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div id="pdf-report" style="display:none;">
+
+  <!-- PAGE 1: Executive Summary -->
+  <div class="pdf-page">
+    <div class="pdf-header">
+      <div class="pdf-header-right">
+        <h1 class="pdf-title">تقرير أداء القسم</h1>
+        <p class="pdf-dept" id="pdf-dept-name"></p>
+      </div>
+      <div class="pdf-header-left">
+        <p class="pdf-date" id="pdf-date"></p>
+        <p class="pdf-subtitle">Skill Matrix System</p>
+      </div>
+    </div>
+
+    <div class="pdf-divider"></div>
+
+    <div class="pdf-kpi-row">
+      <div class="pdf-kpi">
+        <div class="pdf-kpi-value" id="pdf-total-emp">—</div>
+        <div class="pdf-kpi-label">إجمالي الموظفين</div>
+      </div>
+      <div class="pdf-kpi">
+        <div class="pdf-kpi-value" id="pdf-assessed">—</div>
+        <div class="pdf-kpi-label">أجروا الاختبار</div>
+      </div>
+      <div class="pdf-kpi">
+        <div class="pdf-kpi-value" id="pdf-not-assessed">—</div>
+        <div class="pdf-kpi-label">لم يجروا الاختبار</div>
+      </div>
+      <div class="pdf-kpi">
+        <div class="pdf-kpi-value" id="pdf-pass-rate">—</div>
+        <div class="pdf-kpi-label">نسبة النجاح</div>
+      </div>
+      <div class="pdf-kpi">
+        <div class="pdf-kpi-value" id="pdf-avg-score">—</div>
+        <div class="pdf-kpi-label">متوسط الدرجات</div>
+      </div>
+    </div>
+
+    <div class="pdf-charts-row">
+      <div class="pdf-chart-box">
+        <div class="pdf-chart-title">نتيجة الاختبار (ناجح / راسب)</div>
+        <canvas id="pdf-chart-passrate" width="280" height="280"></canvas>
+      </div>
+      <div class="pdf-chart-box">
+        <div class="pdf-chart-title">توزيع الدرجات</div>
+        <canvas id="pdf-chart-dist" width="280" height="280"></canvas>
+      </div>
+    </div>
+
+    <div class="pdf-chart-full">
+      <div class="pdf-chart-title">📈 نشاط الاختبارات (آخر 14 يوم)</div>
+      <canvas id="pdf-chart-timeline" width="700" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- PAGE 2: Skills & Gaps -->
+  <div class="pdf-page">
+    <div class="pdf-page-title">📊 تحليل المهارات والفجوات</div>
+    <div class="pdf-divider"></div>
+
+    <div class="pdf-two-col">
+      <div class="pdf-col">
+        <div class="pdf-section-title pdf-green">✅ أقوى الفئات</div>
+        <table class="pdf-table">
+          <thead><tr><th>الفئة</th><th>نسبة النجاح</th></tr></thead>
+          <tbody id="pdf-top-cats"></tbody>
+        </table>
+      </div>
+      <div class="pdf-col">
+        <div class="pdf-section-title pdf-red">❌ أضعف الفئات</div>
+        <table class="pdf-table">
+          <thead><tr><th>الفئة</th><th>نسبة النجاح</th></tr></thead>
+          <tbody id="pdf-weak-cats"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="pdf-chart-full" style="margin-top:1.2rem;">
+      <div class="pdf-chart-title">📊 نسب النجاح حسب الفئة</div>
+      <canvas id="pdf-chart-cats" width="700" height="220"></canvas>
+    </div>
+
+    <div style="margin-top:1.2rem;">
+      <div class="pdf-section-title pdf-red">🔻 أصعب 5 أسئلة (الأقل نسبة نجاح)</div>
+      <table class="pdf-table">
+        <thead><tr><th style="width:40px">#</th><th>السؤال</th><th>الفئة</th><th style="width:80px">نسبة النجاح</th></tr></thead>
+        <tbody id="pdf-hard-questions"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PAGE 3: Employee Scorecard -->
+  <div class="pdf-page">
+    <div class="pdf-page-title">👥 أداء الموظفين</div>
+    <div class="pdf-divider"></div>
+
+    <div class="pdf-section-title pdf-green">🏆 أفضل الموظفين أداءً</div>
+    <table class="pdf-table">
+      <thead><tr><th>الاسم</th><th>رقم SAP</th><th>الدرجة</th><th>النسبة</th><th>النتيجة</th></tr></thead>
+      <tbody id="pdf-top-employees"></tbody>
+    </table>
+
+    <div class="pdf-section-title pdf-red" style="margin-top:1.5rem;">⚠️ يحتاجون دعم (راسبون أو أقل من 60%)</div>
+    <table class="pdf-table">
+      <thead><tr><th>الاسم</th><th>رقم SAP</th><th>الدرجة</th><th>النسبة</th><th>النتيجة</th></tr></thead>
+      <tbody id="pdf-weak-employees"></tbody>
+    </table>
+
+    <div class="pdf-section-title pdf-orange" style="margin-top:1.5rem;">⏳ لم يجروا الاختبار بعد</div>
+    <table class="pdf-table">
+      <thead><tr><th>الاسم</th><th>رقم SAP</th></tr></thead>
+      <tbody id="pdf-not-assessed-list"></tbody>
+    </table>
+
+    <div class="pdf-footer">
+      <p>تم إنشاء هذا التقرير آلياً — Skill Matrix System</p>
+    </div>
+  </div>
+
 </div>
 
 <!-- Toast -->
