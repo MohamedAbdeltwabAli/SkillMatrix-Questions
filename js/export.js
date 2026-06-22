@@ -303,11 +303,14 @@ window.exportResultsPDF = async function() {
     return;
   }
 
+  // Get actual background color from the page (body or .main)
+  const bgColor = window.getComputedStyle(document.body).backgroundColor || '#f4f6f8';
+  
   const opt = {
     margin:       0.2,
     filename:     `نتائج_الاختبار_${dateStamp()}.pdf`,
     image:        { type: 'jpeg', quality: 1 },
-    html2canvas:  { scale: 3, useCORS: true, backgroundColor: '#ffffff' },
+    html2canvas:  { scale: 3, useCORS: true, backgroundColor: bgColor },
     jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
   };
   
@@ -318,6 +321,13 @@ window.exportResultsPDF = async function() {
     originalDisplays.push(b.style.display);
     b.style.display = 'none';
   });
+
+  // Temporarily force darker text and solid colors via CSS variables
+  const originalTextMuted = document.documentElement.style.getPropertyValue('--text-muted');
+  const originalText = document.documentElement.style.getPropertyValue('--text');
+  
+  document.documentElement.style.setProperty('--text-muted', '#1f2937'); // Much darker gray
+  document.documentElement.style.setProperty('--text', '#000000'); // Solid black
   
   try {
     // We assume html2pdf is loaded globally
@@ -326,9 +336,15 @@ window.exportResultsPDF = async function() {
     console.error("PDF Export error:", err);
     alert('حدث خطأ أثناء تصدير الـ PDF');
   } finally {
-    // Restore buttons
+    // Restore buttons and colors
     btns.forEach((b, i) => {
       b.style.display = originalDisplays[i];
     });
+    
+    if (originalTextMuted) document.documentElement.style.setProperty('--text-muted', originalTextMuted);
+    else document.documentElement.style.removeProperty('--text-muted');
+    
+    if (originalText) document.documentElement.style.setProperty('--text', originalText);
+    else document.documentElement.style.removeProperty('--text');
   }
 };

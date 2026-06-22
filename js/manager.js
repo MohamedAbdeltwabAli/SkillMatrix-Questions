@@ -166,6 +166,7 @@ function renderBarChart(results, depts) {
     },
     options: {
       responsive: true,
+      animation: false,
       plugins: { legend: { position: 'top' } },
       scales: { x: { stacked: false }, y: { beginAtZero: true } }
     }
@@ -201,7 +202,11 @@ function renderLineChart(results) {
         pointRadius: 4,
       }]
     },
-    options: { responsive: true, plugins: { legend: { display: false } } }
+    options: { 
+      responsive: true, 
+      animation: false,
+      plugins: { legend: { display: false } } 
+    }
   });
 }
 
@@ -225,7 +230,12 @@ function renderDonutChart(results) {
         borderColor: '#fff',
       }]
     },
-    options: { responsive: true, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
+    options: { 
+      responsive: true, 
+      animation: false,
+      cutout: '65%', 
+      plugins: { legend: { position: 'bottom' } } 
+    }
   });
 }
 
@@ -394,6 +404,7 @@ function renderAnalysisBarChart(qs) {
     },
     options: {
       responsive: true,
+      animation: false,
       plugins: { legend: { display: false } },
       scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' } } }
     }
@@ -459,7 +470,12 @@ async function loadDeptReportData() {
         labels: ['ناجح', 'راسب'],
         datasets: [{ data: [passed, failed], backgroundColor: ['#1a7a4a','#c0392b'], borderWidth: 2, borderColor: '#fff' }]
       },
-      options: { responsive: true, cutout: '60%', plugins: { legend: { position: 'bottom' } } }
+      options: { 
+        responsive: true, 
+        animation: false,
+        cutout: '60%', 
+        plugins: { legend: { position: 'bottom' } } 
+      }
     });
   }
 
