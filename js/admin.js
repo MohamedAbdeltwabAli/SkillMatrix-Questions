@@ -667,7 +667,6 @@ async function loadDepts(preserveState = false) {
     list.innerHTML = '<div class="skeleton" style="height:120px;margin-bottom:1rem;"></div>'.repeat(3);
   }
 
-  const [{ data: depts }, { data: configs }, { data: categories }] = await Promise.all([
   const [{ data: depts }, { data: configs }, { data: questions }] = await Promise.all([
     db.from('departments').select('*').order('name'),
     db.from('deptconfig').select('*'),
