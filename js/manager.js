@@ -133,8 +133,6 @@ function renderResultsDashboard(results, employees) {
 
   renderResultsTable(results);
   renderBarChart(results, allDepts);
-  renderLineChart(results);
-  renderDonutChart(results);
 }
 
 function filterResults() {
@@ -235,71 +233,6 @@ function renderBarChart(results, depts) {
   });
 }
 
-function renderLineChart(results) {
-  const canvas = $('chart-line');
-  if (!canvas) return;
-  if (chartLine) chartLine.destroy();
-
-  // Group by date
-  const byDate = {};
-  results.forEach(r => {
-    const d = new Date(r.submitted_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' });
-    byDate[d] = (byDate[d] || 0) + 1;
-  });
-  const labels = Object.keys(byDate).slice(-14);
-  const data   = labels.map(l => byDate[l]);
-
-  chartLine = new Chart(canvas, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: 'الاختبارات اليومية',
-        data,
-        borderColor: '#1a3a6b',
-        backgroundColor: 'rgba(26,58,107,0.08)',
-        fill: true,
-        tension: 0.4,
-        pointBackgroundColor: '#e8b84b',
-        pointRadius: 4,
-      }]
-    },
-    options: { 
-      responsive: true, 
-      animation: false,
-      plugins: { legend: { display: false } } 
-    }
-  });
-}
-
-function renderDonutChart(results) {
-  const canvas = $('chart-donut');
-  if (!canvas) return;
-  if (chartDonut) chartDonut.destroy();
-
-  const low  = results.filter(r => r.percent < 50).length;
-  const mid  = results.filter(r => r.percent >= 50 && r.percent < 70).length;
-  const high = results.filter(r => r.percent >= 70).length;
-
-  chartDonut = new Chart(canvas, {
-    type: 'doughnut',
-    data: {
-      labels: ['0–50%', '50–70%', '70%+'],
-      datasets: [{
-        data: [low, mid, high],
-        backgroundColor: ['#c0392b', '#e67e22', '#1a7a4a'],
-        borderWidth: 2,
-        borderColor: '#fff',
-      }]
-    },
-    options: { 
-      responsive: true, 
-      animation: false,
-      cutout: '65%', 
-      plugins: { legend: { position: 'bottom' } } 
-    }
-  });
-}
 
 // ────────────────────────────────────────────────────────────
 // TAB 2: NOT ASSESSED
@@ -338,9 +271,20 @@ function renderNotAssessed(list) {
     return;
   }
 
-  tbody.innerHTML = list.map(e => `
+  const displayLimit = 200;
+  const limitedList = list.slice(0, displayLimit);
+
+  tbody.innerHTML = limitedList.map(e => `
     <tr><td>${e.name}</td><td class="en">${e.sap}</td><td>${e.dept_name}</td></tr>
   `).join('');
+
+  if (list.length > displayLimit) {
+    const extraRow = document.createElement('tr');
+    extraRow.innerHTML = `<td colspan="3" style="text-align:center; padding:1rem; font-size:0.85rem; color:var(--text-muted);">
+      تم عرض أول ${displayLimit} موظف لتسريع الأداء. يوجد ${list.length - displayLimit} موظف آخر. لتصفح الجميع يرجى استخدام زر التصدير (Excel).
+    </td>`;
+    tbody.appendChild(extraRow);
+  }
 }
 
 function filterNotAssessed() {
