@@ -354,15 +354,24 @@ async function loadAnalysis() {
     .map(q => {
       let topWrong = '-';
       if (q.type === 'mcq' && Object.keys(q.wrongAnswers).length > 0) {
-        const topAnsKey = Object.keys(q.wrongAnswers).reduce((a, b) => q.wrongAnswers[a] > q.wrongAnswers[b] ? a : b);
-        const topAnsCount = q.wrongAnswers[topAnsKey];
-        const qq = (window.allQuestionsData || []).find(x => x.q_id === q.q_id);
-        let topAnsText = topAnsKey;
-        if (qq) {
-          const map = { 'A': qq.opt_a, 'B': qq.opt_b, 'C': qq.opt_c, 'D': qq.opt_d };
-          topAnsText = map[topAnsKey] || topAnsKey;
+        let maxCount = 0;
+        let maxKey = '';
+        for (let k in q.wrongAnswers) {
+          if (q.wrongAnswers[k] > maxCount) {
+            maxCount = q.wrongAnswers[k];
+            maxKey = k;
+          }
         }
-        topWrong = `${topAnsText} (${Math.round((topAnsCount/q.wrong)*100)}%)`;
+        let qq = (window.allQuestionsData || []).find(x => x.q_id === q.q_id);
+        let topAnsText = maxKey;
+        if (qq) {
+          if (maxKey === 'A') topAnsText = qq.opt_a;
+          else if (maxKey === 'B') topAnsText = qq.opt_b;
+          else if (maxKey === 'C') topAnsText = qq.opt_c;
+          else if (maxKey === 'D') topAnsText = qq.opt_d;
+        }
+        let pct = q.wrong > 0 ? Math.round((maxCount/q.wrong)*100) : 0;
+        topWrong = topAnsText + ' (' + pct + '%)';
       }
       return { ...q, top_wrong: topWrong, success_rate: Math.round((q.correct / q.attempts) * 100) };
     })
