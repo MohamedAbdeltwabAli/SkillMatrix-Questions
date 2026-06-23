@@ -1021,11 +1021,32 @@ async function loadAnalysis() {
   if (!tbody) return;
   tbody.innerHTML = skeletonRows(9);
 
-  const { data: responses } = await db
-    .from('responses')
-    .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number, score, total, passed)');
+  const promises = [
+    db.from('responses').select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number, score, total, passed)')
+  ];
 
-  allAnalysisResponses = responses || [];
+  const needEmployees = (!allEmployees || allEmployees.length === 0);
+  const needQuestions = (!allQuestions || allQuestions.length === 0);
+
+  if (needEmployees) {
+    promises.push(db.from('employees').select('sap, name'));
+  } else {
+    promises.push(Promise.resolve({ data: allEmployees }));
+  }
+
+  if (needQuestions) {
+    promises.push(db.from('questions').select('q_id, type, opt_a, opt_b, opt_c, opt_d'));
+  } else {
+    promises.push(Promise.resolve({ data: allQuestions }));
+  }
+
+  const [resObj, empObj, qObj] = await Promise.all(promises);
+
+  if (needEmployees) allEmployees = empObj.data || [];
+  if (needQuestions) allQuestions = qObj.data || [];
+
+  const responses = resObj.data || [];
+  allAnalysisResponses = responses;
 
   if (!responses?.length) {
     tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
@@ -1132,6 +1153,12 @@ function renderAnalysis(responses) {
     }
   });
 
+  // Create lookup map for questions for fast O(1) retrieval
+  const qLookupMap = {};
+  allQuestions.forEach(q => {
+    qLookupMap[q.q_id] = q;
+  });
+
   analysisData = Object.values(qMap)
     .map(q => {
       let topWrong = '-';
@@ -1144,7 +1171,7 @@ function renderAnalysis(responses) {
             maxKey = k;
           }
         }
-        let qq = allQuestions.find(x => x.q_id === q.q_id);
+        let qq = qLookupMap[q.q_id];
         let topAnsText = maxKey;
         if (qq) {
           if (maxKey === 'A') topAnsText = qq.opt_a;
@@ -1167,10 +1194,15 @@ function renderAnalysis(responses) {
     .map(d => ({ name: d.dept, rate: Math.round((d.correct / d.attempts) * 100) }))
     .sort((a, b) => b.rate - a.rate);
 
-  // Show first 1000 items so the browser doesn't freeze
-  tbody.innerHTML = filtered.slice(0, 1000).map(r => {
-    const emp = allEmployees.find(e => e.sap === r.sap);
-    const empName = emp ? emp.name : '—';
+  // Create lookup map for employees for fast O(1) retrieval
+  const empMap = {};
+  allEmployees.forEach(e => {
+    empMap[e.sap] = e.name;
+  });
+
+  // Show first 1000 items so the browser doesn't freeze (using responses instead of undefined filtered)
+  tbody.innerHTML = responses.slice(0, 1000).map(r => {
+    const empName = empMap[r.sap] || '—';
     const isCorrect = String(r.is_correct) === 'true' || r.is_correct === true;
     const badgeClass = isCorrect ? 'badge-success' : 'badge-danger';
     const badgeText = isCorrect ? 'صحيحة' : 'خاطئة';
@@ -1197,10 +1229,19 @@ let analysisData = []; // module-level so the export button can access it
 let allAnalysisResponses = [];
 
 function exportAnalysisReport() {
+  const empMap = {};
+  allEmployees.forEach(e => {
+    empMap[e.sap] = e.name;
+  });
+
+  const qLookupMap = {};
+  allQuestions.forEach(q => {
+    qLookupMap[q.q_id] = q;
+  });
+
   const detailedAttempts = allAnalysisResponses.map(r => {
-    const emp = allEmployees.find(e => e.sap === r.sap);
-    const empName = emp ? emp.name : '—';
-    const q = allQuestions.find(qq => qq.q_id === r.q_id);
+    const empName = empMap[r.sap] || '—';
+    const q = qLookupMap[r.q_id];
     let realEmpAns = r.employee_answer;
     let realCorrectAns = r.correct_answer;
     

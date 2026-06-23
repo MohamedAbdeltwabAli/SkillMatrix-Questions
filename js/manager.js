@@ -386,10 +386,20 @@ window.exportAnalysisReport = function() {
   const listToFilter = selectedDept ? window.allAnalysisResponses.filter(r => r.department_name === selectedDept) : window.allAnalysisResponses;
 
   const responses = listToFilter || [];
+
+  const empMap = {};
+  allEmployees.forEach(e => {
+    empMap[e.sap] = e.name;
+  });
+
+  const qLookupMap = {};
+  (window.allQuestionsData || []).forEach(q => {
+    qLookupMap[q.q_id] = q;
+  });
+
   const detailedAttempts = responses.map(r => {
-    const emp = allEmployees.find(e => e.sap === r.sap);
-    const empName = emp ? emp.name : '-';
-    const q = (window.allQuestionsData || []).find(qq => qq.q_id === r.q_id);
+    const empName = empMap[r.sap] || '-';
+    const q = qLookupMap[r.q_id];
     let realEmpAns = r.employee_answer;
     let realCorrectAns = r.correct_answer;
     
