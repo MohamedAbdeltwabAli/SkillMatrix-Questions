@@ -652,6 +652,7 @@ function exportSelectedQuestions() {
 // ────────────────────────────────────────────────────────────
 let deptList = [];
 let allCategories = [];
+let categoryCounts = {};
 let allDeptConfigs = [];
 
 async function loadDepts(preserveState = false) {
@@ -667,14 +668,23 @@ async function loadDepts(preserveState = false) {
   }
 
   const [{ data: depts }, { data: configs }, { data: categories }] = await Promise.all([
+  const [{ data: depts }, { data: configs }, { data: questions }] = await Promise.all([
     db.from('departments').select('*').order('name'),
     db.from('deptconfig').select('*'),
-    db.from('questions').select('category').then(r => ({ data: [...new Set(r.data?.map(q => q.category) || [])] })),
+    db.from('questions').select('category'),
   ]);
 
   deptList = depts || [];
   allDeptConfigs = configs || [];
-  allCategories = categories || [];
+  
+  // Calculate distinct categories and their available question counts
+  categoryCounts = {};
+  if (questions) {
+    questions.forEach(q => {
+      categoryCounts[q.category] = (categoryCounts[q.category] || 0) + 1;
+    });
+  }
+  allCategories = Object.keys(categoryCounts);
   
   filterDepts();
 
@@ -697,14 +707,19 @@ function renderDeptList(depts, configs, categories) {
     const deptConfigs = configs.filter(c => c.department_id === dept.id);
     const totalQ = deptConfigs.reduce((s, c) => s + c.count, 0);
 
-    const configRows = deptConfigs.map(c => `
+    const configRows = deptConfigs.map(c => {
+      const available = categoryCounts[c.category] || 0;
+      return `
       <div class="config-item" data-cat="${c.category}" style="display:flex; flex-direction:row; align-items:center; gap:0.4rem; margin-bottom:0.5rem; flex-wrap:nowrap; overflow:hidden;">
-        <span title="${c.category}" style="flex:1 1 0; min-width:0; font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.category}</span>
-        <input type="number" class="cat-count-input" value="${c.count}" min="1"
+        <div style="flex:1 1 0; min-width:0; display:flex; flex-direction:column;">
+          <span title="${c.category}" style="font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.category}</span>
+          <small style="font-size:0.7rem; color:var(--text-muted);">المتاح: ${available}</small>
+        </div>
+        <input type="number" class="cat-count-input" value="${c.count}" min="1" max="${available}"
                style="flex:0 0 60px; width:60px; padding:0.4rem; border:1.5px solid var(--border); border-radius:6px; text-align:center;" />
         <button class="btn btn-danger btn-sm" onclick="removeCategoryRow(this)" style="flex:0 0 auto; padding:0.3rem 0.5rem;">×</button>
       </div>
-    `).join('');
+    `}).join('');
 
     const catOptions = categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
 
@@ -750,15 +765,19 @@ window.addCategoryRow = function(deptId, selectEl) {
     selectEl.value = '';
     return;
   }
-  
+
+  const available = categoryCounts[cat] || 0;
   const div = document.createElement('div');
   div.className = 'config-item';
   div.dataset.cat = cat;
   div.style.cssText = 'display:flex; flex-direction:row; align-items:center; gap:0.4rem; margin-bottom:0.5rem; flex-wrap:nowrap; overflow:hidden;';
-  
   div.innerHTML = `
-    <span title="${cat}" style="flex:1 1 0; min-width:0; font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cat}</span>
-    <input type="number" class="cat-count-input" value="1" min="1" style="flex:0 0 60px; width:60px; padding:0.4rem; border:1.5px solid var(--border); border-radius:6px; text-align:center;" />
+    <div style="flex:1 1 0; min-width:0; display:flex; flex-direction:column;">
+      <span title="${cat}" style="font-size:0.85rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cat}</span>
+      <small style="font-size:0.7rem; color:var(--text-muted);">المتاح: ${available}</small>
+    </div>
+    <input type="number" class="cat-count-input" value="1" min="1" max="${available}"
+           style="flex:0 0 60px; width:60px; padding:0.4rem; border:1.5px solid var(--border); border-radius:6px; text-align:center;" />
     <button class="btn btn-danger btn-sm" onclick="removeCategoryRow(this)" style="flex:0 0 auto; padding:0.3rem 0.5rem;">×</button>
   `;
   
@@ -808,10 +827,17 @@ async function saveDeptConfigBulk(deptId, event) {
   const items = list.querySelectorAll('.config-item');
   const updates = [];
 
+  let validationError = false;
+
   items.forEach(item => {
     const cat = item.dataset.cat;
     const input = item.querySelector('.cat-count-input');
     const count = parseInt(input.value) || 0;
+    const available = categoryCounts[cat] || 0;
+    if (count > available) {
+      toast(`تحذير: العدد المطلوب للفئة "${cat}" يتجاوز المتاح (${available})، سيتم استخدام كل المتاح وقت الاختبار`, 'warning');
+    }
+    
     if (count > 0) {
       updates.push({ department_id: deptId, category: cat, count });
     }

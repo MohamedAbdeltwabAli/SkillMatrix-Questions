@@ -365,10 +365,18 @@ async function loadAnalysis() {
     managerDepts = managerUser.department.split(',');
   }
 
-  const { data: responses } = await db
-    .from('responses')
-    .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number)')
-    .in('department_name', managerDepts);
+  // Fetch responses and employees to ensure names are available for exports
+  const [ { data: responses }, { data: emps } ] = await Promise.all([
+    db.from('responses')
+      .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number)')
+      .in('department_name', managerDepts),
+    db.from('employees').select('id, sap, name, department_id, departments(name)')
+  ]);
+
+  // Update global allEmployees if not populated yet
+  if (!allEmployees || allEmployees.length === 0) {
+    allEmployees = (emps || []).filter(e => managerDepts.includes(e.departments?.name));
+  }
 
   window.allAnalysisResponses = responses || [];
 
