@@ -29,7 +29,7 @@ function exportResults(results, deptName = 'الكل') {
     `${r.score}/${r.total}`,
     `${r.percent}%`,
     r.passed ? 'ناجح ✓' : 'راسب ✗',
-    new Date(r.submitted_at).toLocaleDateString('ar-EG'),
+    new Date(r.submitted_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }),
   ]);
 
   const wsData = [headers, ...rows];
@@ -301,7 +301,13 @@ window.exportResultsPDF = async function() {
   const report = document.getElementById('pdf-report');
   if (!report) { alert('قالب التقرير غير موجود'); return; }
 
-  const deptName = window.managerUser?.department || 'غير محدد';
+  const globalFilterVal = document.getElementById('global-mgr-dept')?.value;
+  let deptName = window.managerUser?.department || 'غير محدد';
+  if (globalFilterVal) {
+    deptName = globalFilterVal;
+  } else if (deptName.includes(',')) {
+    deptName = 'عدة أقسام';
+  }
 
   // ── Ensure all data is loaded (user may not have visited all tabs) ──
   let results    = window.allResults   || [];
@@ -311,21 +317,26 @@ window.exportResultsPDF = async function() {
 
   // Fetch results & employees if not loaded yet
   if (!results.length || !employees.length) {
+    const rawDepts = window.managerUser?.department || '';
+    const deptArray = rawDepts ? rawDepts.split(',') : [];
+    
     const [{ data: r }, { data: e }] = await Promise.all([
-      db.from('results').select('*').eq('department_name', deptName).order('submitted_at', { ascending: false }),
+      db.from('results').select('*').in('department_name', deptArray.length ? deptArray : ['']).order('submitted_at', { ascending: false }),
       db.from('employees').select('id, sap, name, department_id, departments(name)'),
     ]);
     results   = r || [];
-    employees = (e || []).filter(emp => emp.departments?.name === deptName);
+    employees = (e || []).filter(emp => deptArray.includes(emp.departments?.name));
     window.allResults   = results;
     window.allEmployees = employees;
   }
 
   // Fetch responses if not loaded yet (for category/question analysis)
   if (!responses.length) {
+    const rawDepts = window.managerUser?.department || '';
+    const deptArray = rawDepts ? rawDepts.split(',') : [];
     const { data: resp } = await db.from('responses')
       .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number)')
-      .eq('department_name', deptName);
+      .in('department_name', deptArray.length ? deptArray : ['']);
     responses = resp || [];
     window.allAnalysisResponses = responses;
   }
@@ -334,7 +345,7 @@ window.exportResultsPDF = async function() {
   if (!notAssessed.length && employees.length) {
     const assessedSaps = new Set(results.map(r => typeof r === 'string' ? r : r.sap));
     notAssessed = employees.filter(e => !assessedSaps.has(e.sap)).map(e => ({
-      sap: e.sap, name: e.name, dept_name: e.departments?.name || deptName
+      sap: e.sap, name: e.name, dept_name: e.departments?.name || 'غير محدد'
     }));
     window._notAssessed = notAssessed;
   }
@@ -509,7 +520,7 @@ window.exportResultsPDF = async function() {
   // ── CHART 3: Timeline (Line) ─────────────────────────────
   const byDate = {};
   results.forEach(r => {
-    const d = new Date(r.submitted_at).toLocaleDateString('ar-EG');
+    const d = new Date(r.submitted_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' });
     byDate[d] = (byDate[d] || 0) + 1;
   });
   const timeLabels = Object.keys(byDate).slice(-14);

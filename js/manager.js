@@ -9,8 +9,11 @@ let allResults = [];
 let allEmployees = [];
 let allDepts = [];
 
+let managerDepts = [];
+
 // ── TABS ──────────────────────────────────────────────────
 function showTab(tabId) {
+  if (!managerUser) return; // Wait until loaded
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   $(`panel-${tabId}`)?.classList.add('active');
@@ -72,21 +75,49 @@ let managerUser = null;
 
 async function loadResults() {
   if (!managerUser) managerUser = await window.getCurrentUser();
-  const myDept = managerUser?.department || '';
+  if (managerDepts.length === 0 && managerUser.department) {
+    managerDepts = managerUser.department.split(',');
+  }
 
-  if ($('mgr-res-dept')) $('mgr-res-dept').textContent = myDept ? `(${myDept})` : '';
+  if ($('mgr-res-dept')) $('mgr-res-dept').textContent = managerDepts.length > 1 ? '(عدة أقسام)' : `(${managerDepts[0] || ''})`;
 
   const [{ data: results }, { data: emps }] = await Promise.all([
-    db.from('results').select('*').eq('department_name', myDept).order('submitted_at', { ascending: false }),
+    db.from('results').select('*').in('department_name', managerDepts).order('submitted_at', { ascending: false }),
     db.from('employees').select('id, sap, name, department_id, departments(name)'),
   ]);
 
   allResults   = results   || [];
-  allEmployees = (emps || []).filter(e => e.departments?.name === myDept);
-  allDepts     = [{ name: myDept }];
+  allEmployees = (emps || []).filter(e => managerDepts.includes(e.departments?.name));
+  allDepts     = managerDepts.map(name => ({ name }));
 
-  renderResultsDashboard(allResults, allEmployees);
+  applyGlobalDeptFilter(); // This will render everything based on the filter
 }
+
+window.applyGlobalDeptFilter = function() {
+  const selectedDept = $('global-mgr-dept')?.value || '';
+  
+  const filteredResults = selectedDept ? allResults.filter(r => r.department_name === selectedDept) : allResults;
+  const filteredEmployees = selectedDept ? allEmployees.filter(e => e.departments?.name === selectedDept) : allEmployees;
+
+  // Refresh current tab data
+  if (window.currentManagerTab === 'results' || !window.currentManagerTab) {
+    renderResultsDashboard(filteredResults, filteredEmployees);
+  } else if (window.currentManagerTab === 'notassessed') {
+    // Need to trigger re-render of not assessed
+    const assessedSaps = new Set(filteredResults.map(r => r.sap));
+    const notAssessed = filteredEmployees.filter(e => !assessedSaps.has(e.sap)).map(e => ({
+      sap: e.sap, name: e.name, dept_name: e.departments?.name || selectedDept || '-',
+    }));
+    renderNotAssessed(notAssessed);
+    window._notAssessed = notAssessed;
+  } else if (window.currentManagerTab === 'analysis') {
+    // Reload analysis filtering
+    window.filterAnalysis && window.filterAnalysis();
+  } else if (window.currentManagerTab === 'deptreport') {
+    // Reload dept report data
+    if (window.loadDeptReportData) window.loadDeptReportData();
+  }
+};
 
 function renderResultsDashboard(results, employees) {
   const total      = results.length;
@@ -112,15 +143,43 @@ function filterResults() {
   const from   = $('res-date-from')?.value;
   const to     = $('res-date-to')?.value;
 
-  const filtered = allResults.filter(r => {
+  const selectedDept = $('global-mgr-dept')?.value || '';
+  const listToFilter = selectedDept ? allResults.filter(r => r.department_name === selectedDept) : allResults;
+
+  const filtered = listToFilter.filter(r => {
+    const md = !dept || r.department_name === dept;
     const mp = !passed || String(r.passed) === passed;
     const mf = !from   || new Date(r.submitted_at) >= new Date(from);
     const mt = !to     || new Date(r.submitted_at) <= new Date(to + 'T23:59:59');
-    return mp && mf && mt;
+    return md && mp && mf && mt;
   });
 
   renderResultsTable(filtered);
 }
+
+window.exportManagerExcel = function() {
+  const selectedDept = $('global-mgr-dept')?.value || '';
+  const filteredResults = selectedDept ? allResults.filter(r => r.department_name === selectedDept) : allResults;
+  if (window.exportResults) window.exportResults(filteredResults);
+};
+
+window.filterAnalysis = function() {
+  const cat = $('analysis-cat-filter')?.value || '';
+  const correctness = $('analysis-correctness-filter')?.value || '';
+  const selectedDept = $('global-mgr-dept')?.value || '';
+
+  const listToFilter = selectedDept ? window.allAnalysisResponses.filter(r => r.department_name === selectedDept) : window.allAnalysisResponses;
+
+  const filtered = listToFilter.filter(r => {
+    const mc = !cat || r.category === cat;
+    let mCorr = true;
+    if (correctness === 'true') mCorr = (String(r.is_correct) === 'true' || r.is_correct === true);
+    if (correctness === 'false') mCorr = (String(r.is_correct) === 'false' || r.is_correct === false);
+    return mc && mCorr;
+  });
+
+  renderAnalysisTable(filtered);
+};
 
 function renderResultsTable(list) {
   const tbody = $('res-tbody');
@@ -144,7 +203,7 @@ function renderResultsTable(list) {
           ${r.passed ? 'ناجح' : 'راسب'}
         </span>
       </td>
-      <td class="en" style="font-size:0.8rem;">${new Date(r.submitted_at).toLocaleDateString('ar-EG')}</td>
+      <td class="en" style="font-size:0.8rem;">${new Date(r.submitted_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' })}</td>
     </tr>
   `).join('');
 }
@@ -184,7 +243,7 @@ function renderLineChart(results) {
   // Group by date
   const byDate = {};
   results.forEach(r => {
-    const d = new Date(r.submitted_at).toLocaleDateString('ar-EG');
+    const d = new Date(r.submitted_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' });
     byDate[d] = (byDate[d] || 0) + 1;
   });
   const labels = Object.keys(byDate).slice(-14);
@@ -251,27 +310,22 @@ async function loadNotAssessed() {
   tbody.innerHTML = skeletonRows(3);
 
   if (!managerUser) managerUser = await window.getCurrentUser();
-  const myDept = managerUser?.department || '';
-  if ($('mgr-not-dept')) $('mgr-not-dept').textContent = myDept ? `(${myDept})` : '';
+  if (managerDepts.length === 0 && managerUser.department) {
+    managerDepts = managerUser.department.split(',');
+  }
+
+  if ($('mgr-not-dept')) $('mgr-not-dept').textContent = managerDepts.length > 1 ? '(عدة أقسام)' : `(${managerDepts[0] || ''})`;
 
   if (!allEmployees.length) {
     const [{ data: emps }, { data: results }] = await Promise.all([
-      db.from('employees').select('id, sap, name, department_id, departments!inner(name)').eq('departments.name', myDept),
-      db.from('results').select('sap').eq('department_name', myDept),
+      db.from('employees').select('id, sap, name, department_id, departments!inner(name)').in('departments.name', managerDepts),
+      db.from('results').select('sap, department_name').in('department_name', managerDepts),
     ]);
     allEmployees = emps     || [];
-    allResults   = (results || []).map(r => r.sap);
+    allResults   = results  || [];
   }
 
-  const assessedSaps = new Set(
-    allResults.map(r => (typeof r === 'string' ? r : r.sap))
-  );
-  const notAssessed = allEmployees.filter(e => !assessedSaps.has(e.sap)).map(e => ({
-    sap: e.sap, name: e.name, dept_name: e.departments?.name || myDept || '—',
-  }));
-
-  renderNotAssessed(notAssessed);
-  window._notAssessed = notAssessed;
+  applyGlobalDeptFilter();
 }
 
 function renderNotAssessed(list) {
@@ -307,12 +361,14 @@ async function loadAnalysis() {
   tbody.innerHTML = skeletonRows(8);
 
   if (!managerUser) managerUser = await window.getCurrentUser();
-  const myDept = managerUser?.department || '';
+  if (managerDepts.length === 0 && managerUser.department) {
+    managerDepts = managerUser.department.split(',');
+  }
 
   const { data: responses } = await db
     .from('responses')
     .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number)')
-    .eq('department_name', myDept);
+    .in('department_name', managerDepts);
 
   window.allAnalysisResponses = responses || [];
 
@@ -340,10 +396,13 @@ async function loadAnalysis() {
 }
 
 window.exportAnalysisReport = function() {
-  const responses = window.allAnalysisResponses || [];
+  const selectedDept = $('global-mgr-dept')?.value || '';
+  const listToFilter = selectedDept ? window.allAnalysisResponses.filter(r => r.department_name === selectedDept) : window.allAnalysisResponses;
+
+  const responses = listToFilter || [];
   const detailedAttempts = responses.map(r => {
     const emp = allEmployees.find(e => e.sap === r.sap);
-    const empName = emp ? emp.name : '—';
+    const empName = emp ? emp.name : '-';
     return {
       sap: r.sap,
       name: empName,
@@ -355,7 +414,7 @@ window.exportAnalysisReport = function() {
       emp_ans: r.employee_answer,
       correct_ans: r.correct_answer,
       result: r.is_correct ? 'صح ✓' : 'خطأ ✗',
-      date: new Date(r.submitted_at).toLocaleDateString('ar-EG'),
+      date: new Date(r.submitted_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }),
       attempt: r.results?.attempt_number || 1,
     };
   });
@@ -428,8 +487,9 @@ async function loadDeptReport() {
 }
 
 async function loadDeptReportData() {
-  if (!managerUser) managerUser = await window.getCurrentUser();
-  const dept = managerUser?.department || '';
+
+
+  const dept = $('global-mgr-dept')?.value || managerUser?.department?.split(',')[0] || '';
   if (!dept) return;
 
   const { data: results } = await db
@@ -459,7 +519,7 @@ async function loadDeptReportData() {
         <td class="en">${r.score}/${r.total}</td>
         <td class="en">${r.percent}%</td>
         <td><span class="badge ${r.passed?'badge-success':'badge-danger'}">${r.passed?'ناجح':'راسب'}</span></td>
-        <td class="en" style="font-size:0.8rem;">${new Date(r.submitted_at).toLocaleDateString('ar-EG')}</td>
+        <td class="en" style="font-size:0.8rem;">${new Date(r.submitted_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' })}</td>
       </tr>
     `).join('') || `<tr><td colspan="6" class="text-center text-muted">لا توجد نتائج</td></tr>`;
   }
@@ -521,6 +581,25 @@ let sessionClicks = 0;
     }
   }
 
+  // Format department display nicely
+  let deptDisplay = user.department || '';
+  if (deptDisplay && deptDisplay.includes(',')) {
+    deptDisplay = 'عدة أقسام';
+  }
+  
   await renderUserHeader('#user-name', '#user-role');
+  if ($('user-role')) {
+    $('user-role').textContent = `مدير (${deptDisplay})`;
+  }
+
+  managerDepts = deptDisplay ? user.department.split(',') : [];
+
+  // Populate global filter dropdown
+  const globalFilter = $('global-mgr-dept');
+  if (globalFilter) {
+    globalFilter.innerHTML = '<option value="">جميع الأقسام المخصصة</option>' + 
+      managerDepts.map(d => `<option value="${d}">${d}</option>`).join('');
+  }
+
   showTab('results');
 })();

@@ -28,7 +28,6 @@ function showTab(tabId) {
     questions:  loadQuestions,
     depts:      loadDepts,
     reports:    loadReports,
-    results:    loadResults,
     analysis:   loadAnalysis,
     users:      loadUsers,
     activity:   loadActivityLogs,
@@ -848,11 +847,11 @@ async function saveDeptConfigBulk(deptId, event) {
 }
 
 // ────────────────────────────────────────────────────────────
-// TAB 4: RESULTS
+// TAB 4: REPORTS
 // ────────────────────────────────────────────────────────────
-let allResults = [];
+let allReports = [];
 
-async function loadResults() {
+async function loadReports() {
   const tbody = $('res-tbody');
   if (!tbody) return;
   tbody.innerHTML = skeletonRows(9);
@@ -898,7 +897,7 @@ function renderResults(list) {
           ${r.passed ? 'ناجح' : 'راسب'}
         </span>
       </td>
-      <td class="en" style="font-size:0.8rem;">${new Date(r.submitted_at).toLocaleString('ar-EG')}</td>
+      <td class="en" style="font-size:0.8rem;">${new Date(r.submitted_at).toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' })}</td>
       <td>
         <div class="flex gap-1" style="justify-content:center;">
           <button class="btn btn-ghost btn-sm" onclick="viewResponses('${r.id}')">عرض</button>
@@ -934,7 +933,7 @@ async function deleteResult(id, sap) {
   // Also unlink device
   await db.from('devices').delete().eq('sap', sap);
   toast('تم حذف النتيجة وإعادة تعيين الجهاز', 'success');
-  loadResults();
+  loadReports();
 }
 
 async function viewResponses(resultId) {
@@ -1157,7 +1156,7 @@ function exportAnalysisReport() {
       emp_ans: r.employee_answer,
       correct_ans: r.correct_answer,
       result: r.is_correct ? 'صح ✓' : 'خطأ ✗',
-      date: new Date(r.submitted_at).toLocaleDateString('ar-EG'),
+      date: new Date(r.submitted_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }),
       attempt: r.results?.attempt_number || 1,
     };
   });
@@ -1274,7 +1273,7 @@ async function viewQuestionAttempts(qId) {
             ${r.is_correct ? '✓' : '✗'}
           </span>
         </td>
-        <td class="en" style="font-size:0.8rem;">المحاولة ${attemptNum} - ${new Date(r.submitted_at).toLocaleDateString('ar-EG')}</td>
+        <td class="en" style="font-size:0.8rem;">المحاولة ${attemptNum} - ${new Date(r.submitted_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' })}</td>
       </tr>
     `;
   }).join('');
@@ -1322,7 +1321,7 @@ function renderUsers(list) {
           ${u.role === 'admin' ? 'مسؤول' : 'مدير'}
         </span>
       </td>
-      <td class="en" style="font-size:0.8rem;">${new Date(u.created_at).toLocaleDateString('ar-EG')}</td>
+      <td class="en" style="font-size:0.8rem;">${new Date(u.created_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' })}</td>
       <td>
         <div class="flex gap-1" style="justify-content:center;">
           <button class="btn btn-primary btn-sm" onclick="editUser('${u.id}')">تعديل</button>
@@ -1336,14 +1335,11 @@ function renderUsers(list) {
 window.toggleUserDept = function() {
   const role = $('user-form-role').value;
   const group = $('user-dept-group');
-  const deptSelect = $('user-form-dept');
-  if (!group || !deptSelect) return;
+  if (!group) return;
   if (role === 'manager') {
     group.style.display = 'block';
-    deptSelect.required = true;
   } else {
     group.style.display = 'none';
-    deptSelect.required = false;
   }
 };
 
@@ -1354,13 +1350,18 @@ async function newUser() {
   $('user-form-pass').required = true;
   $('user-pass-hint').style.display = 'none';
 
-  const deptSelect = $('user-form-dept');
-  if (deptSelect) {
+  const deptContainer = $('user-form-dept-container');
+  if (deptContainer) {
     if (!window.allDepts || window.allDepts.length === 0) {
       const { data } = await db.from('departments').select('name').order('name');
       window.allDepts = data || [];
     }
-    deptSelect.innerHTML = `<option value="">-- اختر القسم --</option>` + window.allDepts.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
+    deptContainer.innerHTML = window.allDepts.map(d => `
+      <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+        <input type="checkbox" name="user-dept-checkbox" value="${d.name}" />
+        ${d.name}
+      </label>
+    `).join('');
   }
   toggleUserDept();
 
@@ -1379,14 +1380,19 @@ async function editUser(id) {
   $('user-form-pass').required = false;
   $('user-pass-hint').style.display = 'block';
 
-  const deptSelect = $('user-form-dept');
-  if (deptSelect) {
+  const deptContainer = $('user-form-dept-container');
+  if (deptContainer) {
     if (!window.allDepts || window.allDepts.length === 0) {
       const { data } = await db.from('departments').select('name').order('name');
       window.allDepts = data || [];
     }
-    deptSelect.innerHTML = `<option value="">-- اختر القسم --</option>` + window.allDepts.map(d => `<option value="${d.name}">${d.name}</option>`).join('');
-    deptSelect.value = u.department || '';
+    const assignedDepts = u.department ? u.department.split(',') : [];
+    deptContainer.innerHTML = window.allDepts.map(d => `
+      <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+        <input type="checkbox" name="user-dept-checkbox" value="${d.name}" ${assignedDepts.includes(d.name) ? 'checked' : ''} />
+        ${d.name}
+      </label>
+    `).join('');
   }
   toggleUserDept();
 
@@ -1399,17 +1405,32 @@ async function saveUser() {
   const email = $('user-form-email').value.trim();
   const role  = $('user-form-role').value;
   const pass  = $('user-form-pass').value;
-  const department = role === 'manager' ? $('user-form-dept').value : null;
+  
+  let department = null;
+  if (role === 'manager') {
+    const checkboxes = document.querySelectorAll('input[name="user-dept-checkbox"]:checked');
+    const selectedDepts = Array.from(checkboxes).map(cb => cb.value);
+    if (selectedDepts.length === 0) {
+      toast('يرجى اختيار قسم واحد على الأقل للمدير', 'error'); return;
+    }
+    department = selectedDepts.join(',');
+  }
 
-  if (!name || !email || !role || (role === 'manager' && !department)) {
+  if (!name || !email || !role) {
     toast('يرجى ملء جميع الحقول المطلوبة', 'error'); return;
   }
 
-  // Enforce one manager per department
+  // Enforce one manager per department (check if any of the selected depts is already managed by someone else)
   if (role === 'manager') {
-    const existingManager = allUsers.find(u => u.role === 'manager' && u.department === department && u.id !== id);
+    const selectedDeptsArray = department.split(',');
+    const existingManager = allUsers.find(u => {
+      if (u.role !== 'manager' || u.id === id || !u.department) return false;
+      const uDepts = u.department.split(',');
+      return selectedDeptsArray.some(d => uDepts.includes(d));
+    });
+    
     if (existingManager) {
-      toast('هذا القسم لديه مدير مسجل مسبقاً', 'error'); return;
+      toast(`أحد الأقسام المحددة لديه مدير مسجل مسبقاً (${existingManager.name})`, 'error'); return;
     }
   }
 
@@ -1513,8 +1534,8 @@ async function loadActivityLogs() {
     <tr>
       <td style="font-weight:600;">${log.user_name || '—'}</td>
       <td><span class="badge ${log.role === 'admin' ? 'badge-warning' : 'badge-info'}">${log.role === 'admin' ? 'مسؤول' : 'مدير'}</span></td>
-      <td class="en" style="font-size:0.85rem;">${new Date(log.session_start).toLocaleString('ar-EG')}</td>
-      <td class="en" style="font-size:0.85rem;">${new Date(log.last_active).toLocaleString('ar-EG')}</td>
+      <td class="en" style="font-size:0.85rem;">${new Date(log.session_start).toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' })}</td>
+      <td class="en" style="font-size:0.85rem;">${new Date(log.last_active).toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' })}</td>
       <td class="en" style="font-weight:700;">${log.click_count || 0}</td>
       <td class="en">${formatDuration(log.session_start, log.last_active)}</td>
     </tr>
@@ -1632,10 +1653,13 @@ async function loadReports() {
       name: emp.name,
       department_name: emp.departments?.name || 'غير محدد',
       has_tested: !!r,
+      id: r ? r.id : null,
       attempt: r ? r.attempt : 0,
       score: r ? r.score : 0,
+      total: r ? r.total : 0,
       percent: r ? r.percent : 0,
-      passed: r ? r.passed : false
+      passed: r ? r.passed : false,
+      submitted_at: r ? r.submitted_at : null
     };
   });
 
@@ -1654,6 +1678,8 @@ window.filterReports = function() {
   const dept = $('rep-dept-filter')?.value || '';
   const status = $('rep-status-filter')?.value || '';
   const result = $('rep-result-filter')?.value || '';
+  const from = $('rep-date-from')?.value || '';
+  const to = $('rep-date-to')?.value || '';
 
   const filtered = allReportsData.filter(d => {
     const md = !dept || d.department_name === dept;
@@ -1665,7 +1691,13 @@ window.filterReports = function() {
     if (result === 'pass') mr = d.has_tested && d.passed;
     if (result === 'fail') mr = d.has_tested && !d.passed;
 
-    return md && ms && mr;
+    let mt = true;
+    if (d.has_tested) {
+      if (from) mt = mt && new Date(d.submitted_at) >= new Date(from);
+      if (to) mt = mt && new Date(d.submitted_at) <= new Date(to + 'T23:59:59');
+    }
+
+    return md && ms && mr && mt;
   });
 
   // Update KPIs
@@ -1677,23 +1709,33 @@ window.filterReports = function() {
   if (!tbody) return;
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📄</div><p>لا توجد بيانات مطابقة للبحث</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">📄</div><p>لا توجد بيانات مطابقة للبحث</p></div></td></tr>`;
     return;
   }
 
   tbody.innerHTML = filtered.map(d => {
     const statusBadge = d.has_tested ? '<span class="badge badge-success">أجرى الاختبار</span>' : '<span class="badge badge-warning">لم يجرِ الاختبار</span>';
     const resultBadge = !d.has_tested ? '—' : d.passed ? '<span class="badge badge-success">ناجح</span>' : '<span class="badge badge-danger">راسب</span>';
+    const actions = d.has_tested ? `
+      <div class="flex gap-1" style="justify-content:center;">
+        <button class="btn btn-ghost btn-sm" onclick="viewResponses('${d.id}')">عرض</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteResult('${d.id}','${d.sap}')">حذف</button>
+      </div>
+    ` : '—';
+    const dateStr = d.has_tested ? new Date(d.submitted_at).toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' }) : '—';
+
     return `
       <tr>
-        <td>${d.name}</td>
+        <td style="font-weight:600;">${d.name}</td>
         <td class="en">${d.sap}</td>
         <td>${d.department_name}</td>
         <td>${statusBadge}</td>
         <td class="en">${d.has_tested ? d.attempt : '—'}</td>
-        <td class="en">${d.has_tested ? d.score : '—'}</td>
+        <td class="en">${d.has_tested ? d.score + '/' + d.total : '—'}</td>
         <td class="en">${d.has_tested ? d.percent + '%' : '—'}</td>
         <td>${resultBadge}</td>
+        <td class="en" style="font-size:0.8rem;">${dateStr}</td>
+        <td>${actions}</td>
       </tr>
     `;
   }).join('');
@@ -1737,6 +1779,37 @@ window.exportReports = function() {
   const ws = XLSX.utils.json_to_sheet(exportData);
   XLSX.utils.book_append_sheet(wb, ws, "Reports");
   XLSX.writeFile(wb, `SkillMatrix_Reports_${new Date().toISOString().slice(0,10)}.xlsx`);
+};
+
+window.exportReportsPDF = async function() {
+  // Map filteredReports (which includes untested) to the window.allResults expected by export.js
+  // export.js's exportResultsPDF reads window.allResults. It will only export those who took the test.
+  // We need to re-evaluate the filters.
+  const dept = $('rep-dept-filter')?.value || '';
+  const status = $('rep-status-filter')?.value || '';
+  const result = $('rep-result-filter')?.value || '';
+  const from = $('rep-date-from')?.value || '';
+  const to = $('rep-date-to')?.value || '';
+
+  const testedFiltered = allReportsData.filter(d => {
+    if (!d.has_tested) return false; // PDF only makes sense for actual test results
+    
+    const md = !dept || d.department_name === dept;
+    const ms = status !== 'missed'; // Skip if missed filter was explicitly set, but actually we skipped missed anyway
+    
+    let mr = true;
+    if (result === 'pass') mr = d.passed;
+    if (result === 'fail') mr = !d.passed;
+
+    let mt = true;
+    if (from) mt = mt && new Date(d.submitted_at) >= new Date(from);
+    if (to) mt = mt && new Date(d.submitted_at) <= new Date(to + 'T23:59:59');
+
+    return md && ms && mr && mt;
+  });
+
+  window.allResults = testedFiltered; // Temporarily feed the export script
+  window.exportResultsPDF(); // Trigger the export logic from export.js
 };
 
 // ────────────────────────────────────────────────────────────

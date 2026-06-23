@@ -77,6 +77,14 @@
 
     <div class="content">
 
+      <!-- Global Filter -->
+      <div class="card mb-3" style="padding:1rem; display:flex; align-items:center; gap:1rem;">
+        <label style="font-weight:600; white-space:nowrap;">تصفية بالقسم:</label>
+        <select id="global-mgr-dept" class="filter-select" style="max-width:300px; width:100%;" onchange="applyGlobalDeptFilter()">
+          <option value="">جميع الأقسام المخصصة</option>
+        </select>
+      </div>
+
       <!-- ═══════════════════════════════════════════════ -->
       <!-- TAB 1: RESULTS DASHBOARD                        -->
       <!-- ═══════════════════════════════════════════════ -->
@@ -142,7 +150,7 @@
               </select>
               <input type="date" id="res-date-from" class="filter-select" onchange="filterResults()" />
               <input type="date" id="res-date-to"   class="filter-select" onchange="filterResults()" />
-              <button class="btn btn-accent btn-sm" onclick="exportResults(allResults)">⬇ تصدير Excel</button>
+              <button class="btn btn-accent btn-sm" onclick="exportManagerExcel()">⬇ تصدير Excel</button>
               <button class="btn btn-danger btn-sm" onclick="exportResultsPDF()" style="background:#e74c3c;color:#fff;">📄 تصدير PDF</button>
             </div>
           </div>

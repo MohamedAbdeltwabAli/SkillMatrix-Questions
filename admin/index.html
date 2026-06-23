@@ -46,10 +46,6 @@
         <span class="nav-icon">📄</span>
         <span class="nav-label">التقارير الشاملة</span>
       </button>
-      <button class="nav-item" data-tab="results" onclick="showTab('results')">
-        <span class="nav-icon">📊</span>
-        <span class="nav-label">النتائج</span>
-      </button>
       <button class="nav-item" data-tab="analysis" onclick="showTab('analysis')">
         <span class="nav-icon">📉</span>
         <span class="nav-label">تحليل الأسئلة</span>
@@ -313,7 +309,10 @@
                 <option value="pass">ناجح</option>
                 <option value="fail">راسب</option>
               </select>
-              <button class="btn btn-accent btn-sm" onclick="exportReports()">⬇ تصدير التقرير المفلتر</button>
+              <input type="date" id="rep-date-from" class="filter-select" onchange="filterReports()" />
+              <input type="date" id="rep-date-to"   class="filter-select" onchange="filterReports()" />
+              <button class="btn btn-accent btn-sm" onclick="exportReports()">⬇ تصدير Excel</button>
+              <button class="btn btn-danger btn-sm" onclick="exportReportsPDF()" style="background:#e74c3c;color:#fff;">📄 تصدير PDF</button>
             </div>
           </div>
           <div class="table-wrap">
@@ -321,46 +320,10 @@
               <thead>
                 <tr>
                   <th>الاسم</th><th>SAP</th><th>القسم</th><th>حالة الاختبار</th>
-                  <th>المحاولة</th><th>الدرجة</th><th>النسبة</th><th>النتيجة</th>
+                  <th>المحاولة</th><th>الدرجة</th><th>النسبة</th><th>النتيجة</th><th>تاريخ الاختبار</th><th>الإجراءات</th>
                 </tr>
               </thead>
               <tbody id="rep-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- ═══════════════════════════════════════════════ -->
-      <!-- TAB: RESULTS                                    -->
-      <!-- ═══════════════════════════════════════════════ -->
-      <div class="tab-panel" id="panel-results">
-        <div class="section-card">
-          <div class="section-card-header">
-            <span class="section-card-title">📊 نتائج الاختبارات</span>
-            <div class="flex gap-1" style="flex-wrap:wrap;">
-              <select class="filter-select" id="res-dept-filter" onchange="filterResults()">
-                <option value="">جميع الأقسام</option>
-              </select>
-              <select class="filter-select" id="res-pass-filter" onchange="filterResults()">
-                <option value="">الجميع</option>
-                <option value="true">ناجح</option>
-                <option value="false">راسب</option>
-              </select>
-              <input type="date" id="res-date-from" class="filter-select" onchange="filterResults()" />
-              <input type="date" id="res-date-to"   class="filter-select" onchange="filterResults()" />
-              <button class="btn btn-accent btn-sm" onclick="exportResults(allResults)">⬇ تصدير Excel</button>
-              <button class="btn btn-danger btn-sm" onclick="exportResultsPDF()" style="background:#e74c3c;color:#fff;">📄 تصدير PDF</button>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>الاسم</th><th>SAP</th><th>القسم</th><th>المحاولة</th><th>الدرجة</th>
-                  <th>النسبة</th><th>النتيجة</th><th>التاريخ</th><th>الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody id="res-tbody"></tbody>
             </table>
           </div>
         </div>
@@ -653,8 +616,10 @@
         </select>
       </div>
       <div class="form-group" id="user-dept-group">
-        <label>القسم المخصص للمدير</label>
-        <select id="user-form-dept" required></select>
+        <label>الأقسام المخصصة للمدير</label>
+        <div id="user-form-dept-container" style="max-height:150px; overflow-y:auto; border:1px solid var(--border); padding:0.5rem; border-radius:8px; display:flex; flex-direction:column; gap:0.5rem;">
+          <!-- Checkboxes populated dynamically -->
+        </div>
       </div>
       <div class="form-group">
         <label>كلمة المرور</label>
