@@ -1024,7 +1024,7 @@ async function loadAnalysis() {
 
   const { data: responses } = await db
     .from('responses')
-    .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number)');
+    .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number, score, total, passed)');
 
   allAnalysisResponses = responses || [];
 
@@ -1105,11 +1105,18 @@ function renderAnalysis(responses) {
   responses.forEach(r => {
     // Question Map
     if (!qMap[r.q_id]) {
-      qMap[r.q_id] = { q_id: r.q_id, question: r.question_text, category: r.category, type: r.type, attempts: 0, correct: 0, wrong: 0 };
+      qMap[r.q_id] = { q_id: r.q_id, question: r.question_text, category: r.category, type: r.type, attempts: 0, correct: 0, wrong: 0, wrongAnswers: {} };
     }
     qMap[r.q_id].attempts++;
-    if (r.is_correct) qMap[r.q_id].correct++;
-    else qMap[r.q_id].wrong++;
+    if (r.is_correct) {
+      qMap[r.q_id].correct++;
+    } else {
+      qMap[r.q_id].wrong++;
+      if (r.type === 'mcq') {
+        const wa = r.employee_answer;
+        qMap[r.q_id].wrongAnswers[wa] = (qMap[r.q_id].wrongAnswers[wa] || 0) + 1;
+      }
+    }
 
     // Category Map
     if (r.category) {
@@ -1127,7 +1134,21 @@ function renderAnalysis(responses) {
   });
 
   analysisData = Object.values(qMap)
-    .map(q => ({ ...q, success_rate: Math.round((q.correct / q.attempts) * 100) }))
+    .map(q => {
+      let topWrong = '-';
+      if (q.type === 'mcq' && Object.keys(q.wrongAnswers).length > 0) {
+        const topAnsKey = Object.keys(q.wrongAnswers).reduce((a, b) => q.wrongAnswers[a] > q.wrongAnswers[b] ? a : b);
+        const topAnsCount = q.wrongAnswers[topAnsKey];
+        const qq = allQuestions.find(x => x.q_id === q.q_id);
+        let topAnsText = topAnsKey;
+        if (qq) {
+          const map = { 'A': qq.opt_a, 'B': qq.opt_b, 'C': qq.opt_c, 'D': qq.opt_d };
+          topAnsText = map[topAnsKey] || topAnsKey;
+        }
+        topWrong = `${topAnsText} (${Math.round((topAnsCount/q.wrong)*100)}%)`;
+      }
+      return { ...q, top_wrong: topWrong, success_rate: Math.round((q.correct / q.attempts) * 100) };
+    })
     .sort((a, b) => a.success_rate - b.success_rate);
 
   const catData = Object.values(catMap)
@@ -1171,6 +1192,21 @@ function exportAnalysisReport() {
   const detailedAttempts = allAnalysisResponses.map(r => {
     const emp = allEmployees.find(e => e.sap === r.sap);
     const empName = emp ? emp.name : '—';
+    const q = allQuestions.find(qq => qq.q_id === r.q_id);
+    let realEmpAns = r.employee_answer;
+    let realCorrectAns = r.correct_answer;
+    
+    if (r.type === 'mcq' || (q && q.type === 'mcq')) {
+      const map = {
+        'A': q ? q.opt_a : 'A',
+        'B': q ? q.opt_b : 'B',
+        'C': q ? q.opt_c : 'C',
+        'D': q ? q.opt_d : 'D',
+      };
+      realEmpAns = map[r.employee_answer] || r.employee_answer;
+      realCorrectAns = map[r.correct_answer] || r.correct_answer;
+    }
+
     return {
       sap: r.sap,
       name: empName,
@@ -1179,11 +1215,13 @@ function exportAnalysisReport() {
       question: r.question_text,
       category: r.category,
       type: r.type === 'mcq' ? 'MCQ' : 'صح/خطأ',
-      emp_ans: r.employee_answer,
-      correct_ans: r.correct_answer,
+      emp_ans: realEmpAns,
+      correct_ans: realCorrectAns,
       result: r.is_correct ? 'صح ✓' : 'خطأ ✗',
       date: new Date(r.submitted_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }),
       attempt: r.results?.attempt_number || 1,
+      score: r.results?.score !== undefined ? `${r.results.score}/${r.results.total}` : '-',
+      passed: r.results?.passed !== undefined ? (r.results.passed ? 'ناجح' : 'راسب') : '-',
     };
   });
 

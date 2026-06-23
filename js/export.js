@@ -97,8 +97,37 @@ function exportNotAssessed(employees, deptName = 'الكل') {
 function exportQuestionAnalysis(questions, detailedAttempts = []) {
   const wb = XLSX.utils.book_new();
 
+  // Sheet 0: Summary
+  const totalAttempts = questions.reduce((sum, q) => sum + (q.attempts || 0), 0);
+  const totalCorrect = questions.reduce((sum, q) => sum + (q.correct || 0), 0);
+  const overallRate = totalAttempts ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+  
+  let deptList = "الكل";
+  if (detailedAttempts.length > 0) {
+    const depts = [...new Set(detailedAttempts.map(d => d.dept).filter(Boolean))];
+    if (depts.length > 0) deptList = depts.join('، ');
+  }
+
+  const summaryHeaders = ['مؤشرات التقرير', 'البيان'];
+  const summaryRows = [
+    ['تاريخ تصدير التقرير', new Date().toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' })],
+    ['الأقسام المشمولة بالتقرير', deptList],
+    ['إجمالي الإجابات المسجلة', totalAttempts],
+    ['إجمالي الإجابات الصحيحة', totalCorrect],
+    ['نسبة النجاح الإجمالية للأسئلة', `${overallRate}%`]
+  ];
+  
+  const ws0 = XLSX.utils.aoa_to_sheet([summaryHeaders, ...summaryRows]);
+  ws0['!cols'] = [{ wch: 40 }, { wch: 40 }];
+  ws0['!dir'] = 'rtl';
+  summaryHeaders.forEach((_, i) => {
+    const cell = XLSX.utils.encode_cell({ r: 0, c: i });
+    if (ws0[cell]) ws0[cell].s = cellStyle('1A3A6B', true);
+  });
+  XLSX.utils.book_append_sheet(wb, ws0, 'ملخص التقرير');
+
   // Sheet 1: Full analysis
-  const headers1 = ['رقم السؤال', 'السؤال', 'الفئة', 'النوع', 'المحاولات', 'صح', 'خطأ', 'نسبة النجاح'];
+  const headers1 = ['رقم السؤال', 'السؤال', 'الفئة', 'النوع', 'المحاولات', 'صح', 'خطأ', 'أكثر إجابة خاطئة شيوعاً', 'نسبة النجاح'];
   const rows1 = questions.map(q => [
     q.q_id,
     q.question,
@@ -107,13 +136,14 @@ function exportQuestionAnalysis(questions, detailedAttempts = []) {
     q.attempts,
     q.correct,
     q.wrong,
+    q.top_wrong || '-',
     `${q.success_rate}%`,
   ]);
 
   const ws1 = XLSX.utils.aoa_to_sheet([headers1, ...rows1]);
   ws1['!cols'] = [
     { wch: 12 }, { wch: 50 }, { wch: 15 }, { wch: 10 },
-    { wch: 12 }, { wch: 8 }, { wch: 8 }, { wch: 14 }
+    { wch: 12 }, { wch: 8 }, { wch: 8 }, { wch: 30 }, { wch: 14 }
   ];
 
   headers1.forEach((_, i) => {
@@ -122,7 +152,7 @@ function exportQuestionAnalysis(questions, detailedAttempts = []) {
   });
 
   rows1.forEach((row, rowIdx) => {
-    const rate = parseFloat(row[7]);
+    const rate = parseFloat(row[8]);
     const bgColor = rate < 50 ? 'FFEBEE' : rate < 70 ? 'FFF3E0' : 'E8F5E9';
     headers1.forEach((_, colIdx) => {
       const cell = XLSX.utils.encode_cell({ r: rowIdx + 1, c: colIdx });
@@ -138,12 +168,14 @@ function exportQuestionAnalysis(questions, detailedAttempts = []) {
 
   // Sheet 2: Detailed Employee Attempts
   if (detailedAttempts.length) {
-    const headers2 = ['رقم SAP', 'اسم الموظف', 'القسم', 'المحاولة', 'رقم السؤال', 'السؤال', 'الفئة', 'النوع', 'إجابة الموظف', 'الإجابة الصحيحة', 'النتيجة', 'التاريخ'];
+    const headers2 = ['رقم SAP', 'اسم الموظف', 'القسم', 'المحاولة', 'الدرجة النهائية للمحاولة', 'حالة المحاولة', 'رقم السؤال', 'السؤال', 'الفئة', 'النوع', 'إجابة الموظف', 'الإجابة الصحيحة', 'النتيجة', 'التاريخ'];
     const rows2 = detailedAttempts.map(d => [
       d.sap,
       d.name,
       d.dept,
       `المحاولة ${d.attempt || 1}`,
+      d.score || '-',
+      d.passed || '-',
       d.q_id,
       d.question,
       d.category,
@@ -156,9 +188,9 @@ function exportQuestionAnalysis(questions, detailedAttempts = []) {
 
     const ws2 = XLSX.utils.aoa_to_sheet([headers2, ...rows2]);
     ws2['!cols'] = [
-      { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
-      { wch: 45 }, { wch: 15 }, { wch: 10 }, { wch: 14 },
-      { wch: 14 }, { wch: 12 }, { wch: 12 }
+      { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 15 },
+      { wch: 12 }, { wch: 45 }, { wch: 15 }, { wch: 10 }, { wch: 18 },
+      { wch: 18 }, { wch: 12 }, { wch: 12 }
     ];
 
     headers2.forEach((_, i) => {
@@ -167,7 +199,7 @@ function exportQuestionAnalysis(questions, detailedAttempts = []) {
     });
 
     rows2.forEach((row, rowIdx) => {
-      const isCorrect = row[10].includes('صح');
+      const isCorrect = row[12] && String(row[12]).includes('صح');
       const bgColor = isCorrect ? 'E8F5E9' : 'FFEBEE';
       headers2.forEach((_, colIdx) => {
         const cell = XLSX.utils.encode_cell({ r: rowIdx + 1, c: colIdx });

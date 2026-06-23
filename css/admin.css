@@ -142,12 +142,14 @@ body {
   flex-shrink: 0;
   width: 22px;
   text-align: center;
+  pointer-events: none;
 }
 
 .nav-item .nav-label {
   overflow: hidden;
   transition: opacity 0.2s, width 0.3s;
   flex: 1;
+  pointer-events: none;
 }
 .sidebar.collapsed .nav-label { opacity: 0; width: 0; }
 
