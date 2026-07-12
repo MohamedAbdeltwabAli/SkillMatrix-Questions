@@ -635,15 +635,36 @@
 
 <!-- Responses Modal -->
 <div class="modal-backdrop" id="responses-modal">
-  <div class="modal" style="max-width:700px;">
+  <div class="modal" style="max-width:850px;">
     <div class="modal-header">
       <h3>تفاصيل إجابات الموظف</h3>
       <button class="modal-close">✕</button>
     </div>
-    <div class="table-wrap" style="max-height:400px;overflow-y:auto;">
+    
+    <!-- Bulk Actions Bar inside Modal -->
+    <div class="bulk-actions" id="modal-bulk-actions" style="display:none; margin-bottom: 1rem; padding: 0.5rem 1rem; align-items:center; justify-content:space-between; width:100%;">
+      <span>تم تحديد <strong id="modal-bulk-count">0</strong> سؤال</span>
+      <div class="flex gap-1">
+        <button class="btn btn-primary btn-sm" onclick="bulkUpdateResponsesCorrectness(true)">تعيين كصحيحة ✓</button>
+        <button class="btn btn-danger btn-sm" onclick="bulkUpdateResponsesCorrectness(false)">تعيين كخاطئة ✗</button>
+        <button class="btn btn-ghost btn-sm" onclick="bulkToggleResponsesCorrectness()">🔄 تبديل الحالة</button>
+      </div>
+    </div>
+
+    <div class="table-wrap" style="max-height:450px;overflow-y:auto; width:100%;">
       <table>
         <thead>
-          <tr><th>رقم</th><th>السؤال</th><th>الفئة</th><th>إجابة الموظف</th><th>الإجابة الصحيحة</th><th>النتيجة</th></tr>
+          <tr>
+            <th style="width:40px;">
+              <input type="checkbox" id="select-all-modal-responses" onclick="toggleAllModalResponses(this)" />
+            </th>
+            <th>رقم</th>
+            <th>السؤال</th>
+            <th>الفئة</th>
+            <th>إجابة الموظف</th>
+            <th>الإجابة الصحيحة</th>
+            <th>النتيجة</th>
+          </tr>
         </thead>
         <tbody id="responses-body"></tbody>
       </table>
@@ -681,8 +702,8 @@
 
 <script src="../js/supabase.js?v=2.1"></script>
 <script src="../js/auth.js?v=2.1"></script>
-<script src="../js/export.js?v=2.6"></script>
-<script src="../js/admin.js?v=2.6"></script>
+<script src="../js/export.js?v=2.7"></script>
+<script src="../js/admin.js?v=2.7"></script>
 <script>
   // Sidebar toggle
   function toggleSidebar() {

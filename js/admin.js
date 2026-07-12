@@ -985,7 +985,13 @@ async function viewResponses(resultId) {
   const modal = $('responses-modal');
   if (!modal) return;
 
-  $('responses-body').innerHTML = '<tr><td colspan="6"><div class="skeleton" style="height:20px;"></div></td></tr>'.repeat(5);
+  window.currentActiveResultId = resultId;
+  const masterCheck = $('select-all-modal-responses');
+  if (masterCheck) masterCheck.checked = false;
+  const bulkBar = $('modal-bulk-actions');
+  if (bulkBar) bulkBar.style.display = 'none';
+
+  $('responses-body').innerHTML = '<tr><td colspan="7"><div class="skeleton" style="height:20px;"></div></td></tr>'.repeat(5);
   openModal('responses-modal');
 
   const { data } = await db
@@ -995,7 +1001,7 @@ async function viewResponses(resultId) {
     .order('q_id');
 
   if (!data?.length) {
-    $('responses-body').innerHTML = `<tr><td colspan="6" class="text-center text-muted">لا توجد تفاصيل</td></tr>`;
+    $('responses-body').innerHTML = `<tr><td colspan="7" class="text-center text-muted">لا توجد تفاصيل</td></tr>`;
     return;
   }
 
@@ -1018,6 +1024,9 @@ async function viewResponses(resultId) {
     const corrText = getAnsText(r.correct_answer, qInfo);
     return `
     <tr style="background:${r.is_correct ? 'var(--success-light)' : 'var(--danger-light)'};">
+      <td>
+        <input type="checkbox" class="modal-response-check" value="${r.id}" data-is-correct="${r.is_correct}" onclick="updateModalBulkBar()" />
+      </td>
       <td class="en">${r.q_id}</td>
       <td style="text-align:right;font-size:0.85rem;">${r.question_text}</td>
       <td>${r.category}</td>
@@ -1034,6 +1043,125 @@ async function viewResponses(resultId) {
     </tr>
     `;
   }).join('');
+}
+
+window.toggleAllModalResponses = function(master) {
+  const checkboxes = document.querySelectorAll('.modal-response-check');
+  checkboxes.forEach(cb => cb.checked = master.checked);
+  updateModalBulkBar();
+};
+
+window.updateModalBulkBar = function() {
+  const checked = document.querySelectorAll('.modal-response-check:checked');
+  const count = checked.length;
+  const bar = $('modal-bulk-actions');
+  const countEl = $('modal-bulk-count');
+  const masterCheck = $('select-all-modal-responses');
+
+  if (bar) {
+    bar.style.display = count > 0 ? 'flex' : 'none';
+  }
+  if (countEl) {
+    countEl.innerText = count;
+  }
+  if (masterCheck) {
+    const total = document.querySelectorAll('.modal-response-check').length;
+    masterCheck.checked = (count === total && total > 0);
+  }
+};
+
+window.bulkUpdateResponsesCorrectness = async function(targetIsCorrect) {
+  const checked = Array.from(document.querySelectorAll('.modal-response-check:checked'));
+  if (!checked.length) return;
+
+  const ids = checked.map(cb => cb.value);
+  const resultId = window.currentActiveResultId;
+  if (!resultId) {
+    toast('تعذر العثور على معرّف النتيجة', 'error');
+    return;
+  }
+
+  // 1. Update checked responses
+  const { error: err1 } = await db.from('responses')
+    .update({ is_correct: targetIsCorrect })
+    .in('id', ids);
+
+  if (err1) {
+    toast('خطأ أثناء تعديل الإجابات: ' + err1.message, 'error');
+    return;
+  }
+
+  await finishBulkResponseUpdate(resultId);
+};
+
+window.bulkToggleResponsesCorrectness = async function() {
+  const checked = Array.from(document.querySelectorAll('.modal-response-check:checked'));
+  if (!checked.length) return;
+
+  const resultId = window.currentActiveResultId;
+  if (!resultId) {
+    toast('تعذر العثور على معرّف النتيجة', 'error');
+    return;
+  }
+
+  // Toggle correctness row-by-row
+  const promises = checked.map(cb => {
+    const id = cb.value;
+    const current = cb.getAttribute('data-is-correct') === 'true';
+    return db.from('responses').update({ is_correct: !current }).eq('id', id);
+  });
+
+  const results = await Promise.all(promises);
+  const errorObj = results.find(r => r.error);
+  if (errorObj) {
+    toast('خطأ أثناء تعديل بعض الإجابات: ' + errorObj.error.message, 'error');
+    return;
+  }
+
+  await finishBulkResponseUpdate(resultId);
+};
+
+async function finishBulkResponseUpdate(resultId) {
+  // Recalculate score and passing status
+  const { data: resp, error: err2 } = await db.from('responses')
+    .select('is_correct')
+    .eq('result_id', resultId);
+
+  if (err2) {
+    toast('خطأ أثناء حساب الدرجة الجديدة: ' + err2.message, 'error');
+    return;
+  }
+
+  const score = resp.filter(r => r.is_correct).length;
+  const total = resp.length;
+  const percent = Math.round((score / total) * 100);
+
+  // Fetch current pass threshold setting
+  const { data: settingsData } = await db.from('settings')
+    .select('value')
+    .eq('key', 'pass_threshold');
+  const passThreshold = settingsData?.length ? parseInt(settingsData[0].value) : 70;
+  const passed = percent >= passThreshold;
+
+  // Update results table
+  const { error: err3 } = await db.from('results')
+    .update({ score, total, percent, passed })
+    .eq('id', resultId);
+
+  if (err3) {
+    toast('خطأ أثناء تحديث النتيجة الإجمالية: ' + err3.message, 'error');
+    return;
+  }
+
+  toast('تم تعديل الأسئلة المحددة وتحديث الدرجة الإجمالية بنجاح!', 'success');
+
+  // Refresh modal UI
+  await viewResponses(resultId);
+
+  // Refresh background tables
+  if (typeof loadResults === 'function') loadResults();
+  if (typeof loadReports === 'function') loadReports();
+  if (typeof loadAnalysis === 'function') loadAnalysis();
 }
 
 window.toggleResponseCorrectness = async function(responseId, currentIsCorrect, resultId) {
