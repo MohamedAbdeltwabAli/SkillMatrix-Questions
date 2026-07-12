@@ -266,6 +266,9 @@ async function saveEmployee() {
     department_id: deptId || null,
     password, national_id: nationalId, phone,
   };
+  if (!id) {
+    payload.exam_allowed = true;
+  }
 
   let error;
   if (id) {
