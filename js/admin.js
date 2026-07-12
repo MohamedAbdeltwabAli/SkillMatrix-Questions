@@ -1945,7 +1945,7 @@ window.filterReports = function() {
   }).join('');
 };
 
-window.exportReports = function() {
+window.exportReports = async function() {
   const dept = $('rep-dept-filter')?.value || '';
   const status = $('rep-status-filter')?.value || '';
   const result = $('rep-result-filter')?.value || '';
@@ -1979,10 +1979,93 @@ window.exportReports = function() {
     'النتيجة النهائية': !d.has_tested ? '' : d.passed ? 'ناجح' : 'راسب'
   }));
 
+  // Fetch detailed responses for the filtered tested employees
+  const testedSaps = filtered.filter(d => d.has_tested).map(d => d.sap);
+  let responses = [];
+  if (testedSaps.length > 0) {
+    let start = 0;
+    const limit = 1000;
+    const selectStr = 'sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number, score, total, passed)';
+    toast('جاري تحميل تفاصيل الإجابات لتصدير التقرير...', 'info');
+    while (true) {
+      const { data, error } = await db.from('responses')
+        .select(selectStr)
+        .in('sap', testedSaps)
+        .range(start, start + limit - 1);
+      if (error) {
+        toast('خطأ في تحميل تفاصيل الإجابات: ' + error.message, 'error');
+        break;
+      }
+      if (!data || data.length === 0) break;
+      responses = responses.concat(data);
+      if (data.length < limit) break;
+      start += limit;
+    }
+  }
+
+  // Load questions and employees if empty
+  if (!allEmployees || allEmployees.length === 0) {
+    const { data: emps } = await db.from('employees').select('sap, name');
+    allEmployees = emps || [];
+  }
+  if (!allQuestions || allQuestions.length === 0) {
+    const { data: qs } = await db.from('questions').select('q_id, type, opt_a, opt_b, opt_c, opt_d');
+    allQuestions = qs || [];
+  }
+
+  const empMap = {};
+  allEmployees.forEach(e => {
+    empMap[e.sap] = e.name;
+  });
+
+  const qLookupMap = {};
+  allQuestions.forEach(q => {
+    qLookupMap[q.q_id] = q;
+  });
+
+  const detailedAttempts = responses.map(r => {
+    const q = qLookupMap[r.q_id];
+    const ansKey = (r.employee_answer || '').toUpperCase();
+    const corrKey = (r.correct_answer || '').toUpperCase();
+    const map = {
+      'A': q ? q.opt_a : 'A',
+      'B': q ? q.opt_b : 'B',
+      'C': q ? q.opt_c : 'C',
+      'D': q ? q.opt_d : 'D',
+    };
+    const realEmpAns = map[ansKey] || r.employee_answer;
+    const realCorrectAns = map[corrKey] || r.correct_answer;
+    const empName = empMap[r.sap] || '—';
+
+    return {
+      'رقم SAP': r.sap,
+      'اسم الموظف': empName,
+      'القسم': r.department_name,
+      'المحاولة': `المحاولة ${r.results?.attempt_number || 1}`,
+      'الدرجة النهائية للمحاولة': r.results?.score !== undefined ? `${r.results.score}/${r.results.total}` : '-',
+      'حالة المحاولة': r.results?.passed !== undefined ? (r.results.passed ? 'ناجح' : 'راسب') : '-',
+      'رقم السؤال': r.q_id,
+      'السؤال': r.question_text,
+      'الفئة': r.category,
+      'النوع': r.type === 'mcq' ? 'MCQ' : 'صح/خطأ',
+      'إجابة الموظف': realEmpAns,
+      'الإجابة الصحيحة': realCorrectAns,
+      'النتيجة': r.is_correct ? 'صح ✓' : 'خطأ ✗',
+      'التاريخ': new Date(r.submitted_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }),
+    };
+  });
+
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(exportData);
-  XLSX.utils.book_append_sheet(wb, ws, "Reports");
+  const ws1 = XLSX.utils.json_to_sheet(exportData);
+  XLSX.utils.book_append_sheet(wb, ws1, "ملخص النتائج");
+  
+  if (detailedAttempts.length > 0) {
+    const ws2 = XLSX.utils.json_to_sheet(detailedAttempts);
+    XLSX.utils.book_append_sheet(wb, ws2, "تفاصيل الإجابات");
+  }
+
   XLSX.writeFile(wb, `SkillMatrix_Reports_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('تم تصدير التقرير بنجاح', 'success');
 };
 
 window.exportReportsPDF = async function() {

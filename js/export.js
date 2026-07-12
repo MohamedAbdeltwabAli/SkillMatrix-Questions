@@ -17,8 +17,8 @@ function cellStyle(fgColor, bold = false, color = 'FFFFFFFF') {
  * @param {Array} results - array of result objects
  * @param {string} deptName - department filter name
  */
-function exportResults(results, deptName = 'الكل') {
-  const sheetName = `النتائج - ${deptName}`.substring(0, 31);
+async function exportResults(results, deptName = 'الكل') {
+  const sheetName = `ملخص النتائج`.substring(0, 31);
   const headers = ['الاسم', 'رقم SAP', 'القسم', 'المحاولة', 'الدرجة', 'النسبة', 'النتيجة', 'التاريخ'];
 
   const rows = results.map(r => [
@@ -63,8 +63,107 @@ function exportResults(results, deptName = 'الكل') {
 
   ws['!dir'] = 'rtl';
 
+  // ── DETAILED ATTEMPTS SHEET ──
+  const saps = results.map(r => r.sap);
+  let responses = [];
+  if (saps.length > 0) {
+    let start = 0;
+    const limit = 1000;
+    const selectStr = 'sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number, score, total, passed)';
+    while (true) {
+      const { data, error } = await db.from('responses')
+        .select(selectStr)
+        .in('sap', saps)
+        .range(start, start + limit - 1);
+      if (error) {
+        console.error('Error fetching responses for Excel:', error);
+        break;
+      }
+      if (!data || data.length === 0) break;
+      responses = responses.concat(data);
+      if (data.length < limit) break;
+      start += limit;
+    }
+  }
+
+  // Ensure questions data is in memory
+  if (!window.allQuestionsData || window.allQuestionsData.length === 0) {
+    const { data: qs } = await db.from('questions').select('q_id, type, opt_a, opt_b, opt_c, opt_d');
+    window.allQuestionsData = qs || [];
+  }
+
+  const qLookupMap = {};
+  (window.allQuestionsData || []).forEach(q => {
+    qLookupMap[q.q_id] = q;
+  });
+
+  const detailedAttempts = responses.map(r => {
+    const q = qLookupMap[r.q_id];
+    const ansKey = (r.employee_answer || '').toUpperCase();
+    const corrKey = (r.correct_answer || '').toUpperCase();
+    const map = {
+      'A': q ? q.opt_a : 'A',
+      'B': q ? q.opt_b : 'B',
+      'C': q ? q.opt_c : 'C',
+      'D': q ? q.opt_d : 'D',
+    };
+    const realEmpAns = map[ansKey] || r.employee_answer;
+    const realCorrectAns = map[corrKey] || r.correct_answer;
+
+    const resRow = results.find(x => x.sap === r.sap);
+    const empName = resRow ? resRow.name : '—';
+
+    return [
+      r.sap,
+      empName,
+      r.department_name,
+      `المحاولة ${r.results?.attempt_number || 1}`,
+      r.results?.score !== undefined ? `${r.results.score}/${r.results.total}` : '-',
+      r.results?.passed !== undefined ? (r.results.passed ? 'ناجح' : 'راسب') : '-',
+      r.q_id,
+      r.question_text,
+      r.category,
+      r.type === 'mcq' ? 'MCQ' : 'صح/خطأ',
+      realEmpAns,
+      realCorrectAns,
+      r.is_correct ? 'صح ✓' : 'خطأ ✗',
+      new Date(r.submitted_at).toLocaleDateString('ar-EG', { timeZone: 'Africa/Cairo' }),
+    ];
+  });
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+  if (detailedAttempts.length > 0) {
+    const headers2 = ['رقم SAP', 'اسم الموظف', 'القسم', 'المحاولة', 'الدرجة النهائية للمحاولة', 'حالة المحاولة', 'رقم السؤال', 'السؤال', 'الفئة', 'النوع', 'إجابة الموظف', 'الإجابة الصحيحة', 'النتيجة', 'التاريخ'];
+    const ws2 = XLSX.utils.aoa_to_sheet([headers2, ...detailedAttempts]);
+    ws2['!cols'] = [
+      { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 20 }, { wch: 15 },
+      { wch: 12 }, { wch: 45 }, { wch: 15 }, { wch: 10 }, { wch: 18 },
+      { wch: 18 }, { wch: 12 }, { wch: 12 }
+    ];
+
+    headers2.forEach((_, i) => {
+      const cell = XLSX.utils.encode_cell({ r: 0, c: i });
+      if (ws2[cell]) ws2[cell].s = cellStyle('1A3A6B', true);
+    });
+
+    detailedAttempts.forEach((row, rowIdx) => {
+      const isCorrect = row[12].includes('صح');
+      const bgColor = isCorrect ? 'E8F5E9' : 'FFEBEE';
+      headers2.forEach((_, colIdx) => {
+        const cell = XLSX.utils.encode_cell({ r: rowIdx + 1, c: colIdx });
+        if (ws2[cell]) ws2[cell].s = {
+          fill: { fgColor: { rgb: bgColor } },
+          alignment: { horizontal: 'center', readingOrder: 2 }
+        };
+      });
+    });
+
+    ws2['!dir'] = 'rtl';
+    XLSX.utils.book_append_sheet(wb, ws2, "تفاصيل الإجابات");
+  }
+
   XLSX.writeFile(wb, `نتائج_${deptName}_${dateStamp()}.xlsx`);
 }
 
