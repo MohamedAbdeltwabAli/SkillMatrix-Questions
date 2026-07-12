@@ -176,7 +176,9 @@ window.filterAnalysis = function() {
     return mc && mCorr;
   });
 
-  renderAnalysisTable(filtered);
+  filteredAnalysisResponses = filtered;
+  analysisData = getAnalysisData(filtered);
+  renderAnalysisTable(analysisData);
 };
 
 function renderResultsTable(list) {
@@ -298,6 +300,58 @@ function filterNotAssessed() {
 // ────────────────────────────────────────────────────────────
 let analysisData = [];
 let analysisChartInst;
+let filteredAnalysisResponses = [];
+
+function getAnalysisData(responses) {
+  const qMap = {};
+  responses.forEach(r => {
+    if (!qMap[r.q_id]) {
+      qMap[r.q_id] = { q_id: r.q_id, question: r.question_text, category: r.category, type: r.type, attempts: 0, correct: 0, wrong: 0, wrongAnswers: {} };
+    }
+    qMap[r.q_id].attempts++;
+    if (r.is_correct) {
+      qMap[r.q_id].correct++;
+    } else {
+      qMap[r.q_id].wrong++;
+      if (r.type === 'mcq') {
+        const wa = r.employee_answer;
+        qMap[r.q_id].wrongAnswers[wa] = (qMap[r.q_id].wrongAnswers[wa] || 0) + 1;
+      }
+    }
+  });
+
+  const qLookupMap = {};
+  (window.allQuestionsData || []).forEach(q => {
+    qLookupMap[q.q_id] = q;
+  });
+
+  return Object.values(qMap)
+    .map(q => {
+      let topWrong = '-';
+      if (q.type === 'mcq' && Object.keys(q.wrongAnswers).length > 0) {
+        let maxCount = 0;
+        let maxKey = '';
+        for (let k in q.wrongAnswers) {
+          if (q.wrongAnswers[k] > maxCount) {
+            maxCount = q.wrongAnswers[k];
+            maxKey = k;
+          }
+        }
+        let qq = qLookupMap[q.q_id];
+        let topAnsText = maxKey;
+        if (qq) {
+          if (maxKey === 'A') topAnsText = qq.opt_a;
+          else if (maxKey === 'B') topAnsText = qq.opt_b;
+          else if (maxKey === 'C') topAnsText = qq.opt_c;
+          else if (maxKey === 'D') topAnsText = qq.opt_d;
+        }
+        let pct = q.wrong > 0 ? Math.round((maxCount/q.wrong)*100) : 0;
+        topWrong = topAnsText + ' (' + pct + '%)';
+      }
+      return { ...q, top_wrong: topWrong, success_rate: Math.round((q.correct / q.attempts) * 100) };
+    })
+    .sort((a, b) => a.success_rate - b.success_rate);
+}
 
 async function loadAnalysis() {
   const tbody = $('analysis-tbody');
@@ -368,6 +422,7 @@ async function loadAnalysis() {
   }
 
   window.allAnalysisResponses = responses;
+  filteredAnalysisResponses = responses;
 
   if (!responses?.length) {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
@@ -375,59 +430,14 @@ async function loadAnalysis() {
     return;
   }
 
-  const qMap = {};
-  responses.forEach(r => {
-    if (!qMap[r.q_id]) {
-      qMap[r.q_id] = { q_id: r.q_id, question: r.question_text, category: r.category, type: r.type, attempts: 0, correct: 0, wrong: 0, wrongAnswers: {} };
-    }
-    qMap[r.q_id].attempts++;
-    if (r.is_correct) {
-      qMap[r.q_id].correct++;
-    } else {
-      qMap[r.q_id].wrong++;
-      if (r.type === 'mcq') {
-        const wa = r.employee_answer;
-        qMap[r.q_id].wrongAnswers[wa] = (qMap[r.q_id].wrongAnswers[wa] || 0) + 1;
-      }
-    }
-  });
-
-  analysisData = Object.values(qMap)
-    .map(q => {
-      let topWrong = '-';
-      if (q.type === 'mcq' && Object.keys(q.wrongAnswers).length > 0) {
-        let maxCount = 0;
-        let maxKey = '';
-        for (let k in q.wrongAnswers) {
-          if (q.wrongAnswers[k] > maxCount) {
-            maxCount = q.wrongAnswers[k];
-            maxKey = k;
-          }
-        }
-        let qq = (window.allQuestionsData || []).find(x => x.q_id === q.q_id);
-        let topAnsText = maxKey;
-        if (qq) {
-          if (maxKey === 'A') topAnsText = qq.opt_a;
-          else if (maxKey === 'B') topAnsText = qq.opt_b;
-          else if (maxKey === 'C') topAnsText = qq.opt_c;
-          else if (maxKey === 'D') topAnsText = qq.opt_d;
-        }
-        let pct = q.wrong > 0 ? Math.round((maxCount/q.wrong)*100) : 0;
-        topWrong = topAnsText + ' (' + pct + '%)';
-      }
-      return { ...q, top_wrong: topWrong, success_rate: Math.round((q.correct / q.attempts) * 100) };
-    })
-    .sort((a, b) => a.success_rate - b.success_rate);
+  analysisData = getAnalysisData(responses);
 
   renderAnalysisTable(analysisData);
   renderAnalysisBarChart(analysisData.slice(0, 10));
 }
 
 window.exportAnalysisReport = function() {
-  const selectedDept = $('global-mgr-dept')?.value || '';
-  const listToFilter = selectedDept ? window.allAnalysisResponses.filter(r => r.department_name === selectedDept) : window.allAnalysisResponses;
-
-  const responses = listToFilter || [];
+  const responses = filteredAnalysisResponses.length ? filteredAnalysisResponses : window.allAnalysisResponses;
 
   const empMap = {};
   allEmployees.forEach(e => {

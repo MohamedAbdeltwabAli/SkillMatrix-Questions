@@ -1101,6 +1101,7 @@ async function loadAnalysis() {
     }
   }
   allAnalysisResponses = responses;
+  filteredAnalysisResponses = responses;
 
   if (!responses?.length) {
     tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
@@ -1147,6 +1148,7 @@ window.filterAnalysis = function() {
     return md && mc && mf && mt && mCorr;
   });
 
+  filteredAnalysisResponses = filtered;
   renderAnalysis(filtered);
 };
 
@@ -1281,6 +1283,7 @@ let catChart;
 let deptChart;
 let analysisData = []; // module-level so the export button can access it
 let allAnalysisResponses = [];
+let filteredAnalysisResponses = [];
 
 function exportAnalysisReport() {
   const empMap = {};
@@ -1293,7 +1296,7 @@ function exportAnalysisReport() {
     qLookupMap[q.q_id] = q;
   });
 
-  const detailedAttempts = allAnalysisResponses.map(r => {
+  const detailedAttempts = filteredAnalysisResponses.map(r => {
     const empName = empMap[r.sap] || '—';
     const q = qLookupMap[r.q_id];
     let realEmpAns = r.employee_answer;
