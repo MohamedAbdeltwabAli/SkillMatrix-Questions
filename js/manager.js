@@ -456,14 +456,16 @@ window.exportAnalysisReport = function() {
     let realCorrectAns = r.correct_answer;
     
     if (r.type === 'mcq' || (q && q.type === 'mcq')) {
+      const ansKey = (r.employee_answer || '').toUpperCase();
+      const corrKey = (r.correct_answer || '').toUpperCase();
       const map = {
         'A': q ? q.opt_a : 'A',
         'B': q ? q.opt_b : 'B',
         'C': q ? q.opt_c : 'C',
         'D': q ? q.opt_d : 'D',
       };
-      realEmpAns = map[r.employee_answer] || r.employee_answer;
-      realCorrectAns = map[r.correct_answer] || r.correct_answer;
+      realEmpAns = map[ansKey] || r.employee_answer;
+      realCorrectAns = map[corrKey] || r.correct_answer;
     }
 
     return {
