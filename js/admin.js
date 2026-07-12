@@ -1081,13 +1081,25 @@ window.bulkUpdateResponsesCorrectness = async function(targetIsCorrect) {
     return;
   }
 
-  // 1. Update checked responses
-  const { error: err1 } = await db.from('responses')
-    .update({ is_correct: targetIsCorrect })
-    .in('id', ids);
+  // Update checked responses row-by-row
+  const promises = ids.map(id => {
+    return db.from('responses')
+      .update({ is_correct: targetIsCorrect })
+      .eq('id', id)
+      .select();
+  });
 
-  if (err1) {
-    toast('خطأ أثناء تعديل الإجابات: ' + err1.message, 'error');
+  const results = await Promise.all(promises);
+  const errorObj = results.find(r => r.error);
+  if (errorObj) {
+    toast('خطأ أثناء تعديل بعض الإجابات: ' + errorObj.error.message, 'error');
+    return;
+  }
+
+  // Check if any updates actually modified database rows
+  const totalUpdated = results.reduce((sum, res) => sum + (res.data?.length || 0), 0);
+  if (totalUpdated === 0) {
+    toast('تعذر التعديل: يرجى تمكين سياسة التعديل (UPDATE Policy) لجدول responses في لوحة تحكم Supabase (RLS)', 'error');
     return;
   }
 
@@ -1108,13 +1120,22 @@ window.bulkToggleResponsesCorrectness = async function() {
   const promises = checked.map(cb => {
     const id = cb.value;
     const current = cb.getAttribute('data-is-correct') === 'true';
-    return db.from('responses').update({ is_correct: !current }).eq('id', id);
+    return db.from('responses')
+      .update({ is_correct: !current })
+      .eq('id', id)
+      .select();
   });
 
   const results = await Promise.all(promises);
   const errorObj = results.find(r => r.error);
   if (errorObj) {
     toast('خطأ أثناء تعديل بعض الإجابات: ' + errorObj.error.message, 'error');
+    return;
+  }
+
+  const totalUpdated = results.reduce((sum, res) => sum + (res.data?.length || 0), 0);
+  if (totalUpdated === 0) {
+    toast('تعذر التعديل: يرجى تمكين سياسة التعديل (UPDATE Policy) لجدول responses في لوحة تحكم Supabase (RLS)', 'error');
     return;
   }
 
@@ -1168,12 +1189,18 @@ window.toggleResponseCorrectness = async function(responseId, currentIsCorrect, 
   const newIsCorrect = !currentIsCorrect;
 
   // 1. Update the response row
-  const { error: err1 } = await db.from('responses')
+  const { data, error: err1 } = await db.from('responses')
     .update({ is_correct: newIsCorrect })
-    .eq('id', responseId);
+    .eq('id', responseId)
+    .select();
 
   if (err1) {
     toast('خطأ أثناء تعديل الإجابة: ' + err1.message, 'error');
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    toast('تعذر التعديل: يرجى تمكين سياسة التعديل (UPDATE Policy) لجدول responses في لوحة تحكم Supabase (RLS)', 'error');
     return;
   }
 
