@@ -985,7 +985,7 @@ async function viewResponses(resultId) {
   const modal = $('responses-modal');
   if (!modal) return;
 
-  $('responses-body').innerHTML = '<tr><td colspan="5"><div class="skeleton" style="height:20px;"></div></td></tr>'.repeat(5);
+  $('responses-body').innerHTML = '<tr><td colspan="6"><div class="skeleton" style="height:20px;"></div></td></tr>'.repeat(5);
   openModal('responses-modal');
 
   const { data } = await db
@@ -995,7 +995,7 @@ async function viewResponses(resultId) {
     .order('q_id');
 
   if (!data?.length) {
-    $('responses-body').innerHTML = `<tr><td colspan="5" class="text-center text-muted">لا توجد تفاصيل</td></tr>`;
+    $('responses-body').innerHTML = `<tr><td colspan="6" class="text-center text-muted">لا توجد تفاصيل</td></tr>`;
     return;
   }
 
@@ -1024,14 +1024,72 @@ async function viewResponses(resultId) {
       <td style="font-weight:700;">${empText}</td>
       <td style="font-weight:700;color:var(--success);">${corrText}</td>
       <td>
-        <span class="badge ${r.is_correct ? 'badge-success' : 'badge-danger'}">
-          ${r.is_correct ? '✓' : '✗'}
+        <span class="badge ${r.is_correct ? 'badge-success' : 'badge-danger'}"
+              style="cursor:pointer; display:inline-flex; align-items:center; gap:4px;"
+              title="اضغط لتعديل صحة الإجابة"
+              onclick="toggleResponseCorrectness('${r.id}', ${r.is_correct}, '${resultId}')">
+          ${r.is_correct ? 'صحيحة ✓' : 'خاطئة ✗'} 🔄
         </span>
       </td>
     </tr>
     `;
   }).join('');
 }
+
+window.toggleResponseCorrectness = async function(responseId, currentIsCorrect, resultId) {
+  const newIsCorrect = !currentIsCorrect;
+
+  // 1. Update the response row
+  const { error: err1 } = await db.from('responses')
+    .update({ is_correct: newIsCorrect })
+    .eq('id', responseId);
+
+  if (err1) {
+    toast('خطأ أثناء تعديل الإجابة: ' + err1.message, 'error');
+    return;
+  }
+
+  // 2. Recalculate score and passing status for this result attempt
+  const { data: resp, error: err2 } = await db.from('responses')
+    .select('is_correct')
+    .eq('result_id', resultId);
+
+  if (err2) {
+    toast('خطأ أثناء حساب الدرجة الجديدة: ' + err2.message, 'error');
+    return;
+  }
+
+  const score = resp.filter(r => r.is_correct).length;
+  const total = resp.length;
+  const percent = Math.round((score / total) * 100);
+
+  // Fetch current pass threshold setting
+  const { data: settingsData } = await db.from('settings')
+    .select('value')
+    .eq('key', 'pass_threshold');
+  const passThreshold = settingsData?.length ? parseInt(settingsData[0].value) : 70;
+  const passed = percent >= passThreshold;
+
+  // Update overall result
+  const { error: err3 } = await db.from('results')
+    .update({ score, total, percent, passed })
+    .eq('id', resultId);
+
+  if (err3) {
+    toast('خطأ أثناء تحديث النتيجة الإجمالية: ' + err3.message, 'error');
+    return;
+  }
+
+  toast('تم تعديل نتيجة السؤال وتحديث الدرجة الإجمالية بنجاح!', 'success');
+
+  // 3. Refresh modal UI
+  await viewResponses(resultId);
+
+  // 4. Refresh background tables
+  if (typeof loadResults === 'function') loadResults();
+  if (typeof loadReports === 'function') loadReports();
+  if (typeof loadAnalysis === 'function') loadAnalysis();
+};
 
 // ────────────────────────────────────────────────────────────
 // TAB 5: QUESTION ANALYSIS
