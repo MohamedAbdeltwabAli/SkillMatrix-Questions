@@ -98,14 +98,34 @@ async function loadEmployees() {
   if (!tbody) return;
   tbody.innerHTML = skeletonRows(8);
 
-  const [{ data: depts }, { data: emps }] = await Promise.all([
+  const [{ data: depts }, { data: firstEmps }] = await Promise.all([
     db.from('departments').select('id, name').order('name'),
-    db.from('employees').select('*, departments(name)').order('name'),
+    db.from('employees').select('*, departments(name)').order('name').range(0, 999),
   ]);
+
+  let emps = firstEmps || [];
+  if (emps.length === 1000) {
+    let start = 1000;
+    const limit = 1000;
+    while (true) {
+      const { data, error } = await db.from('employees')
+        .select('*, departments(name)')
+        .order('name')
+        .range(start, start + limit - 1);
+      if (error) {
+        toast('خطأ في تحميل بقية الموظفين: ' + error.message, 'error');
+        break;
+      }
+      if (!data || data.length === 0) break;
+      emps = emps.concat(data);
+      if (data.length < limit) break;
+      start += limit;
+    }
+  }
 
   deptMap = {};
   depts?.forEach(d => { deptMap[d.id] = d.name; });
-  allEmployees = emps || [];
+  allEmployees = emps;
 
   populateDeptFilter('emp-dept-filter', depts || []);
   renderEmployees(allEmployees);
@@ -1021,15 +1041,16 @@ async function loadAnalysis() {
   if (!tbody) return;
   tbody.innerHTML = skeletonRows(9);
 
+  const selectStr = 'sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number, score, total, passed)';
   const promises = [
-    db.from('responses').select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number, score, total, passed)')
+    db.from('responses').select(selectStr).range(0, 999)
   ];
 
   const needEmployees = (!allEmployees || allEmployees.length === 0);
   const needQuestions = (!allQuestions || allQuestions.length === 0);
 
   if (needEmployees) {
-    promises.push(db.from('employees').select('sap, name'));
+    promises.push(db.from('employees').select('sap, name').range(0, 999));
   } else {
     promises.push(Promise.resolve({ data: allEmployees }));
   }
@@ -1042,10 +1063,43 @@ async function loadAnalysis() {
 
   const [resObj, empObj, qObj] = await Promise.all(promises);
 
-  if (needEmployees) allEmployees = empObj.data || [];
+  if (needEmployees) {
+    let emps = empObj.data || [];
+    if (emps.length === 1000) {
+      let start = 1000;
+      const limit = 1000;
+      while (true) {
+        const { data, error } = await db.from('employees').select('sap, name').range(start, start + limit - 1);
+        if (error) {
+          toast('خطأ في تحميل بقية الموظفين: ' + error.message, 'error');
+          break;
+        }
+        if (!data || data.length === 0) break;
+        emps = emps.concat(data);
+        if (data.length < limit) break;
+        start += limit;
+      }
+    }
+    allEmployees = emps;
+  }
   if (needQuestions) allQuestions = qObj.data || [];
 
-  const responses = resObj.data || [];
+  let responses = resObj.data || [];
+  if (responses.length === 1000) {
+    let start = 1000;
+    const limit = 1000;
+    while (true) {
+      const { data, error } = await db.from('responses').select(selectStr).range(start, start + limit - 1);
+      if (error) {
+        toast('خطأ في تحميل بقية بيانات الإجابات: ' + error.message, 'error');
+        break;
+      }
+      if (!data || data.length === 0) break;
+      responses = responses.concat(data);
+      if (data.length < limit) break;
+      start += limit;
+    }
+  }
   allAnalysisResponses = responses;
 
   if (!responses?.length) {
@@ -1740,11 +1794,43 @@ async function loadReports() {
   const tbody = $('rep-tbody');
   if (tbody) tbody.innerHTML = skeletonRows(8);
 
-  // Get all active employees
-  const { data: emps, error: errEmps } = await db.from('employees').select('sap, name, department_id, departments(name)');
+  // Get all active employees in chunks
+  let emps = [];
+  let empStart = 0;
+  const empLimit = 1000;
+  let errEmps = null;
+  while (true) {
+    const { data, error } = await db.from('employees')
+      .select('sap, name, department_id, departments(name)')
+      .range(empStart, empStart + empLimit - 1);
+    if (error) {
+      errEmps = error;
+      break;
+    }
+    if (!data || data.length === 0) break;
+    emps = emps.concat(data);
+    if (data.length < empLimit) break;
+    empStart += empLimit;
+  }
   
-  // Get all latest results per employee (using our existing logic or grabbing all and grouping)
-  const { data: res, error: errRes } = await db.from('results').select('*');
+  // Get all latest results per employee in chunks
+  let res = [];
+  let resStart = 0;
+  const resLimit = 1000;
+  let errRes = null;
+  while (true) {
+    const { data, error } = await db.from('results')
+      .select('*')
+      .range(resStart, resStart + resLimit - 1);
+    if (error) {
+      errRes = error;
+      break;
+    }
+    if (!data || data.length === 0) break;
+    res = res.concat(data);
+    if (data.length < resLimit) break;
+    resStart += resLimit;
+  }
 
   if (errEmps || errRes) {
     if (tbody) tbody.innerHTML = `<tr><td colspan="8">حدث خطأ أثناء تحميل البيانات</td></tr>`;

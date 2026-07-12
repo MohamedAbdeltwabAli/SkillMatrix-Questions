@@ -366,10 +366,27 @@ window.exportResultsPDF = async function() {
   if (!responses.length) {
     const rawDepts = window.managerUser?.department || '';
     const deptArray = rawDepts ? rawDepts.split(',') : [];
-    const { data: resp } = await db.from('responses')
-      .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number)')
-      .in('department_name', deptArray.length ? deptArray : ['']);
-    responses = resp || [];
+    const selectStr = 'sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number)';
+    const deptsToFilter = deptArray.length ? deptArray : [''];
+    
+    let resp = [];
+    let start = 0;
+    const limit = 1000;
+    while (true) {
+      const { data, error } = await db.from('responses')
+        .select(selectStr)
+        .in('department_name', deptsToFilter)
+        .range(start, start + limit - 1);
+      if (error) {
+        console.error('Error fetching responses for PDF export:', error);
+        break;
+      }
+      if (!data || data.length === 0) break;
+      resp = resp.concat(data);
+      if (data.length < limit) break;
+      start += limit;
+    }
+    responses = resp;
     window.allAnalysisResponses = responses;
   }
 

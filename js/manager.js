@@ -309,23 +309,65 @@ async function loadAnalysis() {
     managerDepts = managerUser.department.split(',');
   }
 
-  // Fetch responses, employees, and questions to ensure names and answer texts are available for exports
-  const [ { data: responses }, { data: emps }, { data: qs } ] = await Promise.all([
+  const selectStr = 'sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number, score, total, passed)';
+  
+  // Fetch first chunk of responses, employees, and questions in parallel
+  const [ resObj, { data: emps }, { data: qs } ] = await Promise.all([
     db.from('responses')
-      .select('sap, q_id, question_text, category, type, employee_answer, correct_answer, is_correct, department_name, submitted_at, results(attempt_number, score, total, passed)')
-      .in('department_name', managerDepts),
-    db.from('employees').select('id, sap, name, department_id, departments(name)'),
+      .select(selectStr)
+      .in('department_name', managerDepts)
+      .range(0, 999),
+    db.from('employees').select('id, sap, name, department_id, departments(name)').range(0, 999),
     db.from('questions').select('q_id, type, opt_a, opt_b, opt_c, opt_d')
   ]);
+
+  let allEmps = emps || [];
+  if (allEmps.length === 1000) {
+    let start = 1000;
+    const limit = 1000;
+    while (true) {
+      const { data, error } = await db.from('employees')
+        .select('id, sap, name, department_id, departments(name)')
+        .range(start, start + limit - 1);
+      if (error) {
+        console.error('Error fetching more employees:', error);
+        break;
+      }
+      if (!data || data.length === 0) break;
+      allEmps = allEmps.concat(data);
+      if (data.length < limit) break;
+      start += limit;
+    }
+  }
 
   window.allQuestionsData = qs || [];
 
   // Update global allEmployees if not populated yet
   if (!allEmployees || allEmployees.length === 0) {
-    allEmployees = (emps || []).filter(e => managerDepts.includes(e.departments?.name));
+    allEmployees = allEmps.filter(e => managerDepts.includes(e.departments?.name));
   }
 
-  window.allAnalysisResponses = responses || [];
+  let responses = resObj.data || [];
+  if (responses.length === 1000) {
+    let start = 1000;
+    const limit = 1000;
+    while (true) {
+      const { data, error } = await db.from('responses')
+        .select(selectStr)
+        .in('department_name', managerDepts)
+        .range(start, start + limit - 1);
+      if (error) {
+        console.error('Error fetching more responses:', error);
+        break;
+      }
+      if (!data || data.length === 0) break;
+      responses = responses.concat(data);
+      if (data.length < limit) break;
+      start += limit;
+    }
+  }
+
+  window.allAnalysisResponses = responses;
 
   if (!responses?.length) {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
