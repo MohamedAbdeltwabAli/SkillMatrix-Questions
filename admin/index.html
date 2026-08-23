@@ -296,6 +296,7 @@
           <div class="section-card-header">
             <span class="section-card-title">📄 التقارير الشاملة</span>
             <div class="flex gap-1" style="flex-wrap:wrap;">
+              <input type="text" id="rep-search-filter" class="filter-select" placeholder="بحث بالاسم أو SAP..." oninput="filterReports()" style="min-width:180px;" />
               <select class="filter-select" id="rep-dept-filter" onchange="filterReports()">
                 <option value="">جميع الأقسام</option>
               </select>
@@ -702,8 +703,8 @@
 
 <script src="../js/supabase.js?v=2.1"></script>
 <script src="../js/auth.js?v=2.1"></script>
-<script src="../js/export.js?v=2.9"></script>
-<script src="../js/admin.js?v=2.9"></script>
+<script src="../js/export.js?v=3.0"></script>
+<script src="../js/admin.js?v=3.0"></script>
 <script>
   // Sidebar toggle
   function toggleSidebar() {

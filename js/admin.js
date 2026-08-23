@@ -2100,8 +2100,15 @@ window.filterReports = function() {
   const result = $('rep-result-filter')?.value || '';
   const from = $('rep-date-from')?.value || '';
   const to = $('rep-date-to')?.value || '';
+  const search = ($('rep-search-filter')?.value || '').trim().toLowerCase();
 
   const filtered = allReportsData.filter(d => {
+    // Search by SAP or Name
+    if (search) {
+      const matchSearch = d.name.toLowerCase().includes(search) || d.sap.toLowerCase().includes(search);
+      if (!matchSearch) return false;
+    }
+
     const md = !dept || d.department_name === dept;
     let ms = true;
     if (status === 'tested') ms = d.has_tested;
@@ -2165,8 +2172,14 @@ window.exportReports = async function() {
   const dept = $('rep-dept-filter')?.value || '';
   const status = $('rep-status-filter')?.value || '';
   const result = $('rep-result-filter')?.value || '';
+  const search = ($('rep-search-filter')?.value || '').trim().toLowerCase();
 
   const filtered = allReportsData.filter(d => {
+    if (search) {
+      const matchSearch = d.name.toLowerCase().includes(search) || d.sap.toLowerCase().includes(search);
+      if (!matchSearch) return false;
+    }
+
     const md = !dept || d.department_name === dept;
     let ms = true;
     if (status === 'tested') ms = d.has_tested;
