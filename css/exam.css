@@ -225,8 +225,14 @@ body {
 
 /* Employee info slide-down (inside card) */
 .login-body .employee-info {
-  background: rgba(26,58,107,0.06);
-  border: 1px solid rgba(26,58,107,0.15);
+  background: #eef3fa;
+  border: 1.5px solid #c5d5ea;
+}
+.login-body .employee-info .emp-name {
+  color: var(--primary);
+}
+.login-body .employee-info .emp-dept {
+  color: #555;
 }
 
 /* ── LOGIN SCREEN ───────────────────────────────────────── */
@@ -279,17 +285,19 @@ body {
   background: rgba(232,184,75,0.1);
   border: 1px solid rgba(232,184,75,0.3);
   border-radius: 12px;
-  padding: 0.9rem 1.1rem;
-  margin-bottom: 1.2rem;
+  padding: 0;
+  margin-bottom: 0;
   overflow: hidden;
   max-height: 0;
   opacity: 0;
-  transition: max-height 0.4s ease, opacity 0.4s ease, padding 0.3s;
+  transition: max-height 0.4s ease, opacity 0.4s ease, padding 0.3s, margin 0.3s;
 }
 
 .employee-info.visible {
   max-height: 120px;
   opacity: 1;
+  padding: 0.9rem 1.1rem;
+  margin-bottom: 1.2rem;
 }
 
 .employee-info .emp-name {
