@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>اختبار مهارات | El-Araby Group</title>
   <link rel="stylesheet" href="css/main.css?v=2.3" />
-  <link rel="stylesheet" href="css/exam.css?v=2.3" />
+  <link rel="stylesheet" href="css/exam.css?v=2.4" />
   <!-- Supabase -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -17,44 +17,48 @@
 <div id="app">
 
   <!-- ── LOGIN SCREEN ─────────────────────────────────── -->
-  <div id="login-screen" class="screen active glass-card">
-    <div class="logo-wrap">
-      <img src="assets/elaraby%20logo.png" alt="Elaraby Group Logo" />
-      <div class="brand-name">El-Araby Group</div>
-      <div class="brand-sub">نظام تقييم المهارات | مجموعة الغسالة</div>
-    </div>
+  <div id="login-screen" class="screen active" style="width:min(440px,100%);">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-logo"><img src="assets/elaraby%20logo.png" alt="El-Araby Group Logo" /></div>
+        <div class="login-title-text">نظام تقييم المهارات | مجموعة الغسالة</div>
+        <div class="login-sub-text">El-Araby Group</div>
+      </div>
 
-    <h2 class="screen-title">تسجيل الدخول للاختبار</h2>
+      <div class="login-body">
+        <h2 class="login-body-title">تسجيل الدخول للاختبار</h2>
 
-    <div class="input-group">
-      <label for="sap-input">رقم SAP الخاص بك</label>
-      <input type="text" id="sap-input" placeholder="مثال: 80002758"
-             inputmode="numeric" autocomplete="off" maxlength="12" />
-    </div>
+        <div class="form-group">
+          <label for="sap-input">رقم SAP الخاص بك</label>
+          <input type="text" id="sap-input" placeholder="مثال: 80002758"
+                 inputmode="numeric" autocomplete="off" maxlength="12" />
+        </div>
 
-    <div class="employee-info" id="emp-info">
-      <div class="emp-name" id="emp-name">—</div>
-      <div class="emp-dept" id="emp-dept">—</div>
-    </div>
+        <div class="employee-info" id="emp-info">
+          <div class="emp-name" id="emp-name">—</div>
+          <div class="emp-dept" id="emp-dept">—</div>
+        </div>
 
-    <div class="input-group">
-      <label for="pass-input">كلمة المرور</label>
-      <input type="password" id="pass-input" placeholder="••••"
-             inputmode="numeric" maxlength="8" />
-      <small style="color:rgba(255,255,255,0.45);font-size:0.75rem;margin-top:0.3rem;">
-        آخر رقمين من الرقم القومي + آخر رقمين من رقم الهاتف
-      </small>
-    </div>
+        <div class="form-group">
+          <label for="pass-input">كلمة المرور</label>
+          <input type="password" id="pass-input" placeholder="••••"
+                 inputmode="numeric" maxlength="8" />
+          <small style="color:var(--text-muted);font-size:0.75rem;margin-top:0.3rem;display:block;">
+            آخر رقمين من الرقم القومي + آخر رقمين من رقم الهاتف
+          </small>
+        </div>
 
-    <div id="login-error" style="display:none;background:rgba(192,57,43,0.15);border:1px solid rgba(192,57,43,0.4);
-         border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;color:#e87070;margin-bottom:1rem;text-align:center;"></div>
+        <div id="login-error" style="display:none;background:var(--danger-light);border:1px solid rgba(192,57,43,0.3);
+             border-radius:10px;padding:0.7rem 1rem;font-size:0.88rem;color:var(--danger);margin-bottom:1rem;text-align:center;"></div>
 
-    <button class="btn btn-accent btn-lg w-full" id="start-btn" style="justify-content:center;margin-top:0.5rem;" disabled>
-      بدء الاختبار
-    </button>
+        <button class="btn-exam-login" id="start-btn" disabled>
+          بدء الاختبار
+        </button>
+      </div>
 
-    <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,0.1);text-align:center;font-size:0.75rem;color:rgba(255,255,255,0.4);letter-spacing:0.3px;">
-      Developed by <span style="color:rgba(255,255,255,0.6);font-weight:600;">Mohamed Abdeltwab Ali</span> — Process Engineer, WM Group
+      <div class="login-footer">
+        <div>Developed by <span style="font-weight:600;">Mohamed Abdeltwab Ali</span> — Process Engineer, WM Group</div>
+      </div>
     </div>
   </div>
 
