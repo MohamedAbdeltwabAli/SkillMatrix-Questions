@@ -364,6 +364,26 @@
           </div>
         </div>
 
+        <div class="section-card" style="margin-bottom:1.5rem;">
+          <div class="section-card-header">
+            <span class="section-card-title">📊 ملخص أداء الأسئلة</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>رقم</th><th>السؤال</th><th>الفئة</th><th>النوع</th>
+                  <th>المحاولات</th>
+                  <th style="cursor:pointer;user-select:none;" onclick="sortAdminSummaryTable('correct')">صح <span id="admin-sort-icon-correct"></span></th>
+                  <th style="cursor:pointer;user-select:none;" onclick="sortAdminSummaryTable('wrong')">خطأ <span id="admin-sort-icon-wrong"></span></th>
+                  <th style="cursor:pointer;user-select:none;" onclick="sortAdminSummaryTable('success_rate')">نسبة النجاح <span id="admin-sort-icon-success_rate"></span></th>
+                </tr>
+              </thead>
+              <tbody id="analysis-summary-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="section-card">
           <div class="section-card-header">
             <span class="section-card-title">تفاصيل تحليل الأسئلة</span>
@@ -704,7 +724,7 @@
 <script src="../js/supabase.js?v=2.1"></script>
 <script src="../js/auth.js?v=2.1"></script>
 <script src="../js/export.js?v=3.0"></script>
-<script src="../js/admin.js?v=3.0"></script>
+<script src="../js/admin.js?v=3.1"></script>
 <script>
   // Sidebar toggle
   function toggleSidebar() {

@@ -1458,6 +1458,9 @@ function renderAnalysis(responses) {
     })
     .sort((a, b) => a.success_rate - b.success_rate);
 
+  // Render summary table (aggregated per question)
+  renderAdminSummaryTable(analysisData);
+
   const catData = Object.values(catMap)
     .map(c => ({ name: c.category, rate: Math.round((c.correct / c.attempts) * 100) }))
     .sort((a, b) => b.rate - a.rate);
@@ -1495,11 +1498,68 @@ function renderAnalysis(responses) {
   renderAnalysisCharts(catData, deptData);
 }
 
+function renderAdminSummaryTable(list) {
+  const tbody = $('analysis-summary-tbody');
+  if (!tbody) return;
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+      <div class="empty-icon">📊</div><p>لا توجد بيانات</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(q => {
+    const rateClass = q.success_rate < 50 ? 'rate-row-red' : q.success_rate < 70 ? 'rate-row-orange' : 'rate-row-green';
+    const barClass  = q.success_rate < 50 ? 'low' : q.success_rate < 70 ? 'mid' : '';
+    return `
+      <tr class="${rateClass}">
+        <td class="en">${q.q_id}</td>
+        <td style="text-align:right;max-width:200px;font-size:0.85rem;">${q.question}</td>
+        <td>${q.category}</td>
+        <td>${q.type === 'mcq' ? 'MCQ' : 'صح/خطأ'}</td>
+        <td class="en">${q.attempts}</td>
+        <td class="en" style="color:var(--success);">${q.correct}</td>
+        <td class="en" style="color:var(--danger);">${q.wrong}</td>
+        <td>
+          <div class="flex items-center gap-1" style="justify-content:center;">
+            <span class="en" style="font-weight:700;min-width:36px;">${q.success_rate}%</span>
+            <div class="rate-bar"><div class="rate-bar-fill ${barClass}" style="width:${q.success_rate}%;"></div></div>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
 let catChart;
 let deptChart;
 let analysisData = []; // module-level so the export button can access it
 let allAnalysisResponses = [];
 let filteredAnalysisResponses = [];
+
+// ── Admin analysis summary table sorting ──────────────────
+let adminSummarySortField = '';
+let adminSummarySortAsc = true;
+
+window.sortAdminSummaryTable = function(field) {
+  if (adminSummarySortField === field) {
+    adminSummarySortAsc = !adminSummarySortAsc;
+  } else {
+    adminSummarySortField = field;
+    adminSummarySortAsc = true;
+  }
+
+  ['correct', 'wrong', 'success_rate'].forEach(f => {
+    const icon = $('admin-sort-icon-' + f);
+    if (icon) icon.textContent = f === field ? (adminSummarySortAsc ? '▲' : '▼') : '';
+  });
+
+  const sorted = [...analysisData].sort((a, b) => {
+    const diff = a[field] - b[field];
+    return adminSummarySortAsc ? diff : -diff;
+  });
+
+  renderAdminSummaryTable(sorted);
+};
 
 function exportAnalysisReport() {
   const empMap = {};

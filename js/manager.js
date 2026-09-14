@@ -179,6 +179,15 @@ window.filterAnalysis = function() {
   filteredAnalysisResponses = filtered;
   analysisData = getAnalysisData(filtered);
   renderAnalysisTable(analysisData);
+  renderAnalysisBarChart(analysisData.slice(0, 10));
+
+  // Reset sort state
+  analysisSortField = '';
+  analysisSortAsc = true;
+  ['correct', 'wrong', 'success_rate'].forEach(f => {
+    const icon = $('sort-icon-' + f);
+    if (icon) icon.textContent = '';
+  });
 };
 
 function renderResultsTable(list) {
@@ -430,6 +439,14 @@ async function loadAnalysis() {
     return;
   }
 
+  // Populate category filter
+  const cats = [...new Set(responses.map(r => r.category))].sort();
+  const catFilter = $('analysis-cat-filter');
+  if (catFilter) {
+    const current = catFilter.value;
+    catFilter.innerHTML = `<option value="">جميع الفئات</option>` + cats.map(c => `<option value="${c}" ${c === current ? 'selected' : ''}>${c}</option>`).join('');
+  }
+
   analysisData = getAnalysisData(responses);
 
   renderAnalysisTable(analysisData);
@@ -539,6 +556,38 @@ function renderAnalysisBarChart(qs) {
     }
   });
 }
+
+// ── Analysis table sorting ──────────────────────────────────
+let analysisSortField = '';
+let analysisSortAsc = true;
+
+window.sortAnalysisTable = function(field) {
+  if (analysisSortField === field) {
+    analysisSortAsc = !analysisSortAsc;
+  } else {
+    analysisSortField = field;
+    analysisSortAsc = true;
+  }
+
+  // Update sort icons
+  ['correct', 'wrong', 'success_rate'].forEach(f => {
+    const icon = $('sort-icon-' + f);
+    if (icon) icon.textContent = f === field ? (analysisSortAsc ? '▲' : '▼') : '';
+  });
+
+  const sorted = [...analysisData].sort((a, b) => {
+    const diff = a[field] - b[field];
+    return analysisSortAsc ? diff : -diff;
+  });
+
+  renderAnalysisTable(sorted);
+};
+
+window.clearAnalysisCatFilter = function() {
+  const catFilter = $('analysis-cat-filter');
+  if (catFilter) catFilter.value = '';
+  window.filterAnalysis();
+};
 
 // ────────────────────────────────────────────────────────────
 // TAB 4: DEPARTMENT REPORTS
